@@ -78,6 +78,28 @@ st.markdown(
             color: #777;
         }
     </style>
+    
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <style>
+        /* Esconde a barra superior (header) do Streamlit */
+        header {visibility: hidden;}
+        
+        /* Esconde o menu lateral do Streamlit */
+        #MainMenu {visibility: hidden;}
+
+        /* Remove o rodapé "Made with Streamlit" */
+        footer {visibility: hidden;}
+        
+        /* Garante que o fundo do app continue com sua cor roxa */
+        body, .stApp {
+            background: #E6E6FA !important;  /* Roxinho Lavanda */
+        }
+    </style>
     """,
     unsafe_allow_html=True,
 )
