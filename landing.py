@@ -5,7 +5,7 @@ st.markdown(
     """
     <style>
         body {
-            background: linear-gradient(to right, #F0F8FF, #E6E6FA, #D8BFD8);
+            background: #E6E6FA;  /* Roxinho Lavanda */
         }
         .main-container {
             background-color: white;
@@ -20,13 +20,13 @@ st.markdown(
             font-size: 40px;
             font-weight: bold;
             font-family: 'Poppins', sans-serif;
-            color: #333;
+            color: #4B0082;
             margin-bottom: 10px;
         }
         .subtitle {
             font-size: 18px;
             font-family: 'Lora', serif;
-            color: #666;
+            color: #555;
             margin-bottom: 20px;
         }
         .highlight {
