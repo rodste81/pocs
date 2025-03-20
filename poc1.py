@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_extras.switch_page_button import switch_page
 
 # 🔹 Configuração da página
 st.set_page_config(page_title="Dashboard", layout="wide")
@@ -20,6 +21,10 @@ st.markdown("""
             border-radius: 10px;
             box-shadow: 2px 2px 15px rgba(0, 0, 0, 0.1);
             text-align: center;
+            cursor: pointer;
+        }
+        .card:hover {
+            background-color: #f8f9fa;
         }
         .icon {
             font-size: 30px;
@@ -47,7 +52,8 @@ st.markdown("<p class='small-font'>Mantenha o controle das suas tarefas e finan�
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
-    st.markdown("<div class='card'><p class='icon'>👤</p><p class='big-font'>Cadastrar Lead</p></div>", unsafe_allow_html=True)
+    if st.button("📇 Cadastrar Lead"):
+        switch_page("lead")  # Leva para a página de cadastro de leads
 
 with col2:
     st.markdown("<div class='card'><p class='icon'>📁</p><p class='big-font'>Criar Projeto</p></div>", unsafe_allow_html=True)
