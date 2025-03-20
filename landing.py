@@ -1,14 +1,14 @@
 import streamlit as st
 
-# 🎨 **Estilos personalizados**
+# 🎨 **Estilos personalizados para corrigir o fundo branco**
 st.markdown(
     """
     <style>
-        body {
-            background: #E6E6FA;  /* Roxinho Lavanda */
+        body, .stApp {
+            background: #E6E6FA !important;  /* Roxinho Lavanda */
         }
         .main-container {
-            background-color: white;
+            background-color: rgba(255, 255, 255, 0.85);  /* Branco com leve transparência */
             padding: 50px;
             border-radius: 15px;
             box-shadow: 0px 5px 20px rgba(0, 0, 0, 0.15);
