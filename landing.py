@@ -107,14 +107,14 @@ st.markdown(
 st.markdown(
     """
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600&display=swap');
-        
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
         .custom-title {
-            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
             font-size: 36px;
-            font-weight: 600;
+            font-weight: 700;
             text-align: center;
-            color: #4A4A4A;
+            color: #2A2A2A;
         }
     </style>
 
@@ -122,6 +122,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
 
 # 📌 **Container principal**
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
