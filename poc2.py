@@ -1,13 +1,23 @@
 import streamlit as st
+import folium
+from streamlit_folium import folium_static
 
-st.title("📍 Google Maps no Streamlit")
+# Configuração da página
+st.set_page_config(page_title="Mapa Interativo", layout="wide")
 
-# Define a localização inicial
-latitude = -23.55052
-longitude = -46.633308
+# Centraliza o mapa em uma localização específica (latitude, longitude)
+lat_inicial, lon_inicial = -23.5505, -46.6333  # São Paulo, Brasil
 
-# URL do Google Maps com coordenadas dinâmicas
-maps_url = f"https://www.google.com/maps/embed/v1/place?key=SUA_GOOGLE_MAPS_API_KEY&q={latitude},{longitude}"
+# Criar mapa com OpenStreetMap
+m = folium.Map(location=[lat_inicial, lon_inicial], zoom_start=12)
 
-# Exibir o Google Maps como um iframe
-st.components.v1.iframe(maps_url, width=700, height=500)
+# Adiciona um marcador no mapa
+folium.Marker(
+    location=[lat_inicial, lon_inicial],
+    popup="Marco Zero de São Paulo",
+    icon=folium.Icon(color="blue", icon="info-sign")
+).add_to(m)
+
+# Exibe o mapa no Streamlit
+st.title("📍 Mapa Interativo - OpenStreetMap")
+folium_static(m)
