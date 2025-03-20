@@ -56,7 +56,17 @@ with col1:
         switch_page("lead")  # Leva para a página de cadastro de leads
 
 with col2:
-    st.markdown("<div class='card'><p class='icon'>📁</p><p class='big-font'>Criar Projeto</p></div>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <a href="?page=projeto" target="_self" style="text-decoration: none;">
+            <div class='card'>
+                <p class='icon'>📁</p>
+                <p class='big-font'>Criar Projeto</p>
+            </div>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
 
 with col3:
     st.markdown("<div class='card'><p class='icon'>📝</p><p class='big-font'>Criar Proposta</p></div>", unsafe_allow_html=True)
