@@ -104,6 +104,25 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown(
+    """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600&display=swap');
+        
+        .custom-title {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 36px;
+            font-weight: 600;
+            text-align: center;
+            color: #4A4A4A;
+        }
+    </style>
+
+    <h1 class='custom-title'>Transforme Sorrisos, Gerencie seu Consultório!</h1>
+    """,
+    unsafe_allow_html=True,
+)
+
 # 📌 **Container principal**
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
