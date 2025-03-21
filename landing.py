@@ -3,78 +3,77 @@ import streamlit as st
 # Definir a página
 st.set_page_config(page_title="LoveYuu", layout="wide")
 
-# CSS customizado para reproduzir o design
+# CSS customizado para reproduzir o design original
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
 
-body, html, [class*="css"] {
+html, body, [class*="css"] {
     font-family: 'Poppins', sans-serif;
-    background-color: #020814;
+    background-color: #000;
     color: white;
 }
 
 .main-container {
     display: flex;
     align-items: center;
-    justify-content: space-around;
+    justify-content: center;
     height: 100vh;
-    padding: 0 100px;
+    gap: 100px;
 }
 
 .text-container {
-    max-width: 550px;
+    text-align: center;
+    max-width: 500px;
 }
 
 .big-title {
-    font-size: 72px;
+    font-size: 60px;
     font-weight: 800;
-    line-height: 1;
-    margin-bottom: 10px;
-    color: #FFBBCD;
+    line-height: 1.1;
+    color: #ffffff;
 }
 
 .big-title span {
-    color: #FF5C81;
+    color: #FF7B9E;
 }
 
 .subtitle {
-    font-size: 22px;
-    font-weight: 400;
-    margin-bottom: 30px;
+    font-size: 18px;
+    margin-top: 20px;
     line-height: 1.5;
+    color: #ffffff;
 }
 
-.highlight {
-    color: #FF5C81;
+.subtitle .highlight {
+    color: #FF7B9E;
 }
 
 .button {
     display: inline-block;
-    background-color: #FF5C81;
-    padding: 15px 30px;
-    border-radius: 12px;
+    margin-top: 30px;
+    background-color: #FF7B9E;
+    padding: 12px 40px;
+    border-radius: 8px;
     color: white;
     text-decoration: none;
     font-weight: 600;
-    box-shadow: 0 0 20px rgba(255, 92, 129, 0.6);
-    transition: all 0.3s ease;
+    box-shadow: 0 0 20px rgba(255, 123, 158, 0.7);
 }
 
 .button:hover {
-    background-color: #FF4069;
-    box-shadow: 0 0 30px rgba(255, 92, 129, 0.8);
-    color: white;
+    background-color: #ff5c81;
+    box-shadow: 0 0 25px rgba(255, 123, 158, 0.9);
 }
 
 .image-container img {
-    width: 450px;
+    width: 400px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# Layout principal
+# Layout principal centralizado
 st.markdown('''
 <div class="main-container">
     <div class="text-container">
