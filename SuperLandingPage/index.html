@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Robotizze Consult - 3D World</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <div id="ui-layer">
+      <div id="instructions">
+        <h1>Robotizze Consult</h1>
+        <p>Use <b>W A S D</b> to move the robot.</p>
+        <p>Walk to a building to explore.</p>
+      </div>
+      
+      <div id="modal-overlay" class="hidden">
+        <div id="modal-content">
+          <h2 id="modal-title">Title</h2>
+          <p id="modal-body">Content goes here...</p>
+          <button id="close-modal">Close</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
