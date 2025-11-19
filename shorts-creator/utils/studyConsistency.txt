@@ -1,0 +1,154 @@
+Com base na estrutura do seu projeto (shorts-creator), a melhor forma de implementar isso é separando as responsabilidades.
+
+Você já tem o geminiService.ts (que provavelmente gera os roteiros/textos). Agora, vamos criar um serviço dedicado para a geração de imagens que aceite os parâmetros de consistência (Seed e Imagem de Referência).
+
+Aqui está o passo a passo da implementação técnica:
+
+1. Atualize as Definições (types.ts)
+Primeiro, vamos definir a estrutura de dados para garantir que o seu app saiba o que é uma "imagem de referência".
+
+Adicione ou atualize o src/types.ts:
+
+TypeScript
+
+export interface ImageGenerationParams {
+  prompt: string;
+  negativePrompt?: string;
+  width?: number;
+  height?: number;
+  // O "Segredo" da consistência:
+  seed?: number; 
+  referenceImageUrl?: string; // URL da imagem do personagem/cenário base
+  consistencyStrength?: number; // 0.0 a 1.0 (O quanto deve parecer com a ref)
+}
+
+export interface GeneratedImage {
+  url: string;
+  seedUsed: number;
+}
+2. Crie o Serviço de Imagem (services/imageGenService.ts)
+Crie um novo arquivo dentro da pasta services. Vou usar o exemplo da API do Replicate (que é excelente para usar modelos como Stable Diffusion + IP-Adapter para consistência), mas a lógica serve para Stability AI também.
+
+Nota: Você precisará da biblioteca axios (npm install axios).
+
+TypeScript
+
+// src/services/imageGenService.ts
+import axios from 'axios';
+import { ImageGenerationParams, GeneratedImage } from '../types';
+
+const REPLICATE_API_TOKEN = import.meta.env.VITE_REPLICATE_API_TOKEN;
+
+// Exemplo usando o modelo "SDXL com IP-Adapter" no Replicate
+// Esse modelo é específico para manter consistência de imagem
+const MODEL_VERSION = "swk23/sdxl-ip-adapter:alguma-hash-longa-do-modelo"; 
+
+export const generateConsistentImage = async (
+  params: ImageGenerationParams
+): Promise<GeneratedImage> => {
+  
+  // Se não passar seed, geramos uma aleatória para poder salvar e reusar depois
+  const seed = params.seed || Math.floor(Math.random() * 1000000000);
+
+  const payload = {
+    version: MODEL_VERSION,
+    input: {
+      prompt: params.prompt,
+      negative_prompt: "ugly, distorted, low quality",
+      // AQUI ACONTECE A MÁGICA:
+      image_prompt: params.referenceImageUrl, // A imagem base (ex: rosto do personagem)
+      ip_adapter_scale: params.consistencyStrength || 0.6, // Força da referência
+      seed: seed,
+      width: 1080, // Formato Shorts (9:16 seria 1080x1920, ajustar conforme modelo)
+      height: 1920
+    }
+  };
+
+  try {
+    // 1. Inicia a geração
+    const response = await axios.post(
+      'https://api.replicate.com/v1/predictions',
+      payload,
+      {
+        headers: {
+          'Authorization': `Token ${REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    let prediction = response.data;
+
+    // 2. Polling: Espera a imagem ficar pronta (APIs de imagem são assíncronas)
+    while (prediction.status !== 'succeeded' && prediction.status !== 'failed') {
+      await new Promise(r => setTimeout(r, 1000)); // Espera 1s
+      const statusReq = await axios.get(
+        `https://api.replicate.com/v1/predictions/${prediction.id}`,
+        {
+          headers: { 'Authorization': `Token ${REPLICATE_API_TOKEN}` }
+        }
+      );
+      prediction = statusReq.data;
+    }
+
+    if (prediction.status === 'failed') throw new Error('Falha na geração da imagem');
+
+    return {
+      url: prediction.output[0], // URL da imagem final
+      seedUsed: seed // Retornamos o seed para você salvar no estado do App
+    };
+
+  } catch (error) {
+    console.error("Erro ao gerar imagem:", error);
+    throw error;
+  }
+};
+3. Integração no Componente (App.tsx ou similar)
+Agora, no seu fluxo principal, você precisa capturar o seed da primeira imagem gerada e passá-lo para as próximas.
+
+TypeScript
+
+// Dentro do seu componente
+import { generateConsistentImage } from './services/imageGenService';
+
+// Estado para guardar a consistência
+const [globalSeed, setGlobalSeed] = useState<number | null>(null);
+const [characterRef, setCharacterRef] = useState<string | null>(null); // URL da imagem do personagem
+
+const handleCreateScene = async (sceneDescription: string) => {
+  
+  // Se for a primeira cena e não tivermos seed, define uma
+  // Se já tivermos, REUSA o seed e a imagem de referência
+  const params = {
+    prompt: sceneDescription, // Vem do seu geminiService (o roteiro)
+    seed: globalSeed || undefined,
+    referenceImageUrl: characterRef || undefined
+  };
+
+  const result = await generateConsistentImage(params);
+
+  // Se for a primeira vez, salvamos o seed para usar nas próximas cenas desse Short
+  if (!globalSeed) {
+    setGlobalSeed(result.seedUsed);
+  }
+  
+  // Exibe a imagem...
+  console.log("Imagem gerada:", result.url);
+};
+Resumo da Lógica de Negócio
+Cena 1: O usuário faz upload de uma foto ou gera a primeira imagem do personagem.
+
+Você salva a URL dessa imagem no estado characterRef.
+
+Você gera um seed aleatório e salva no estado globalSeed.
+
+Cena 2, 3, 4...:
+
+Você chama o imageGenService passando o mesmo globalSeed e a mesma referenceImageUrl (characterRef).
+
+Você muda apenas o prompt (ex: "Personagem correndo", "Personagem comendo").
+
+Dica de Segurança (Importante)
+Como seu app parece ser um projeto React (Vite) rodando no navegador (Client-side), chamar APIs como Replicate ou OpenAI diretamente do frontend expõe sua API Key.
+
+Recomendação: O ideal é criar uma pequena Edge Function (se usar Vercel/Supabase) ou um backend simples em Node.js que guarde a chave e faça a chamada real. O seu frontend chamaria apenas /api/generate-image.

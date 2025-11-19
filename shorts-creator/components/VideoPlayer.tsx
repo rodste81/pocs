@@ -81,6 +81,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }
       const url = URL.createObjectURL(blob);
       onRecordingComplete({ url, extension: recorderConfigRef.current.extension });
       recordedChunksRef.current = [];
+      mediaRecorderRef.current = null; // Allow new recording session
     };
 
     mediaRecorderRef.current.start();
@@ -88,7 +89,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }
 
   useEffect(() => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
 
     return () => {
@@ -208,61 +209,92 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }
       source.start();
       audioSourceRef.current = source;
 
-      source.onended = () => {
+      const onEnded = () => {
         const transitionBuffer = 500;
         setTimeout(resolve, transitionBuffer);
       };
+
+      source.onended = onEnded;
+
+      // Fallback: If audio doesn't trigger onended (e.g. context issues), force advance
+      // Add 2 seconds buffer to the calculated duration
+      const fallbackDuration = sceneDurationMs + 2000;
+      setTimeout(() => {
+        if (audioSourceRef.current === source) {
+          console.warn("Audio onended didn't fire, forcing scene advance.");
+          onEnded();
+        }
+      }, fallbackDuration);
     });
   };
 
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+
   useEffect(() => {
-    if (scenes.length === 0) return;
-
-    let isCancelled = false;
-
-    const playAllScenes = async () => {
-      try {
-        console.log("Starting playback of", scenes.length, "scenes");
-
-        if (audioContextRef.current?.state === 'suspended') {
-          console.log("Resuming AudioContext...");
-          await audioContextRef.current.resume();
-        }
-
-        setupRecorder();
-
-        for (let i = 0; i < scenes.length; i++) {
-          if (isCancelled) return;
-          console.log(`Playing scene ${i + 1}/${scenes.length}`);
-          setCurrentSceneIndex(i);
-          await playScene(i);
-        }
-        console.log("Playback finished successfully");
-      } catch (error) {
-        console.error("Error during playback:", error);
-        // You might want to expose this error to the UI state if possible
-      } finally {
-        if (!isCancelled && mediaRecorderRef.current?.state === 'recording') {
-          console.log("Stopping MediaRecorder");
-          mediaRecorderRef.current.stop();
-        }
-      }
-    };
-
-    playAllScenes();
-
-    return () => {
-      isCancelled = true;
-    };
+    if (scenes.length > 0) {
+      setIsReady(true);
+    }
   }, [scenes]);
+
+  const handleStart = async () => {
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
+
+    setIsPlaying(true);
+
+    // Start the sequence
+    playAllScenes();
+  };
+
+  const playAllScenes = async () => {
+    try {
+      console.log("Starting playback of", scenes.length, "scenes");
+      setupRecorder();
+
+      for (let i = 0; i < scenes.length; i++) {
+        console.log(`Playing scene ${i + 1}/${scenes.length}`);
+        setCurrentSceneIndex(i);
+        await playScene(i);
+      }
+      console.log("Playback finished successfully");
+    } catch (error) {
+      console.error("Error during playback:", error);
+    } finally {
+      if (mediaRecorderRef.current?.state === 'recording') {
+        console.log("Stopping MediaRecorder");
+        mediaRecorderRef.current.stop();
+      }
+    }
+  };
 
   if (scenes.length === 0) return null;
 
   const progress = ((currentSceneIndex + 1) / scenes.length) * 100;
 
   return (
-    <div className="w-full max-w-[360px] aspect-[9/16] bg-black rounded-2xl shadow-2xl overflow-hidden relative flex flex-col border-4 border-gray-700">
+    <div className="w-full max-w-[360px] aspect-[9/16] bg-black rounded-2xl shadow-2xl overflow-hidden relative flex flex-col border-4 border-gray-700 group">
       <canvas ref={canvasRef} width={VIDEO_WIDTH} height={VIDEO_HEIGHT} className="w-full h-full"></canvas>
+
+      {!isPlaying && isReady && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-30">
+          <button
+            onClick={handleStart}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 px-8 rounded-full text-xl shadow-lg transform transition hover:scale-110 flex items-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Iniciar Vídeo
+          </button>
+        </div>
+      )}
 
       <div className="w-full bg-gray-600 h-1.5 absolute top-0 left-0 z-20">
         <div

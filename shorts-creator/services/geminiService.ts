@@ -38,7 +38,7 @@ async function makeApiCallWithRetry<T>(
                 console.error(`API rate limit still present after ${MAX_RETRIES} attempts. Giving up.`);
                 throw new Error("API_RATE_LIMIT_EXCEEDED");
             }
-            
+
             console.warn(`API call failed (rate limit). Retrying in ${delay / 1000}s... (Attempt ${attempt}/${MAX_RETRIES})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             delay *= 2; // Exponential backoff
@@ -62,7 +62,7 @@ async function generateAudio(script: string): Promise<string> {
             },
         },
     });
-    
+
     // The TTS model has a very low rate limit (2 RPM), so a long initial delay is crucial.
     // FIX: Explicitly provide the generic type to makeApiCallWithRetry to ensure the response is correctly typed.
     const response = await makeApiCallWithRetry<GenerateContentResponse>(apiCall, 60000); // 60s initial delay for TTS
@@ -94,9 +94,9 @@ IMPORTANT RULES:
 - ABSOLUTELY NO TEXT, NO LETTERS, NO NUMBERS, NO SIGNAGE in the image.
 - The image aspect ratio is vertical (9:16).
 - Focus on the visual elements described.`;
-    
+
     const apiCall = () => ai.models.generateImages({
-        model: 'imagen-3.0-generate-001',
+        model: 'imagen-4.0-generate-001',
         prompt,
         config: {
             numberOfImages: 1,
@@ -104,11 +104,10 @@ IMPORTANT RULES:
             aspectRatio: '9:16',
         },
     });
-    
-    // FIX: Explicitly provide the generic type to makeApiCallWithRetry to ensure the response is correctly typed.
-    const response = await makeApiCallWithRetry<GenerateImagesResponse>(apiCall, 5000); // 5s initial delay for Imagen
 
-    const base64ImageBytes = response.generatedImages[0].image.imageBytes;
+    const response = await makeApiCallWithRetry<GenerateImagesResponse>(apiCall, 5000);
+
+    const base64ImageBytes = response.generatedImages?.[0]?.image?.imageBytes;
     if (!base64ImageBytes) {
         throw new Error("Failed to generate image from API after retries.");
     }
@@ -118,12 +117,12 @@ IMPORTANT RULES:
 export async function createSceneAssets(description: string, id: number, allDescriptions: string[]): Promise<Scene> {
     try {
         const subtitle = description; // The narration is the scene description itself.
-        
+
         // Generate assets sequentially to respect API rate limits.
         // The functions now have built-in retries.
         const audio = await generateAudio(subtitle);
         const image = await generateImage(description, id, allDescriptions);
-        
+
         return { id, description, subtitle, audio, image };
     } catch (error) {
         console.error(`Error processing scene ${id}:`, error);

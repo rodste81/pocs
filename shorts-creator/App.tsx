@@ -44,17 +44,17 @@ const App: React.FC = () => {
       setScenes(generatedScenes);
     } catch (err) {
       console.error(err);
-       if (err instanceof Error && err.message === 'API_RATE_LIMIT_EXCEEDED') {
-          setError('Sua cota de API foi excedida após múltiplas tentativas. Isso é comum no plano gratuito.');
+      if (err instanceof Error && err.message === 'API_RATE_LIMIT_EXCEEDED') {
+        setError('Sua cota de API foi excedida após múltiplas tentativas. Isso é comum no plano gratuito.');
       } else {
-          setError('Ocorreu um erro inesperado ao criar o vídeo. Verifique sua conexão e tente novamente.');
+        setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
       }
     } finally {
       setIsLoading(false);
       setLoadingMessage('');
     }
   }, [storyboard]);
-  
+
   const resetApp = () => {
     setStoryboard('');
     setScenes([]);
@@ -79,21 +79,21 @@ const App: React.FC = () => {
         </header>
 
         {isLoading && <Loader message={loadingMessage} />}
-        
+
         {error && (
-            <div className="bg-red-900/50 border border-red-500 text-red-300 p-4 rounded-lg mb-6 w-full max-w-lg text-center">
-                <p>{error}</p>
-                {error.includes('cota de API') && (
-                    <a 
-                        href="https://ai.google.dev/gemini-api/docs/billing" 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-purple-400 hover:underline mt-2 inline-block font-semibold"
-                    >
-                        Saiba como aumentar seus limites
-                    </a>
-                )}
-            </div>
+          <div className="bg-red-900/50 border border-red-500 text-red-300 p-4 rounded-lg mb-6 w-full max-w-lg text-center">
+            <p>{error}</p>
+            {error.includes('cota de API') && (
+              <a
+                href="https://ai.google.dev/gemini-api/docs/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-purple-400 hover:underline mt-2 inline-block font-semibold"
+              >
+                Saiba como aumentar seus limites
+              </a>
+            )}
+          </div>
         )}
 
         {!isLoading && scenes.length === 0 && (
@@ -118,28 +118,28 @@ CENA 3: A nave espacial passa silenciosamente por um anel de asteroides brilhant
             </button>
           </div>
         )}
-        
+
         {scenes.length > 0 && !isLoading && (
-            <div className="w-full flex flex-col items-center">
-                <VideoPlayer scenes={scenes} onRecordingComplete={setDownloadInfo} />
-                <div className="flex items-center space-x-4 mt-6">
-                    {downloadInfo && (
-                         <a
-                            href={downloadInfo.url}
-                            download={`shorts_creator_video.${downloadInfo.extension}`}
-                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-md transition-transform transform hover:scale-105"
-                        >
-                            Download Vídeo
-                        </a>
-                    )}
-                    <button
-                        onClick={resetApp}
-                        className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-md transition-all"
-                    >
-                        Criar Novo Vídeo
-                    </button>
-                </div>
+          <div className="w-full flex flex-col items-center">
+            <VideoPlayer scenes={scenes} onRecordingComplete={setDownloadInfo} />
+            <div className="flex items-center space-x-4 mt-6">
+              {downloadInfo && (
+                <a
+                  href={downloadInfo.url}
+                  download={`shorts_creator_video.${downloadInfo.extension}`}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-md transition-transform transform hover:scale-105"
+                >
+                  Download Vídeo
+                </a>
+              )}
+              <button
+                onClick={resetApp}
+                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-md transition-all"
+              >
+                Criar Novo Vídeo
+              </button>
             </div>
+          </div>
         )}
       </div>
     </div>
