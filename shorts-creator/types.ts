@@ -5,5 +5,4 @@ export interface Scene {
   image: string; // base64 data URL
   audio: string; // base64 raw audio data
   subtitle: string;
-  seedUsed?: number; // Track seed for consistency
 }
