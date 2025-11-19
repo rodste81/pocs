@@ -1,0 +1,77 @@
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+/* General Reset and Font */
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Main Container Styling */
+.stApp {
+    background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
+    color: #ffffff;
+}
+
+/* Glassmorphism Card */
+.css-1r6slb0, .stMarkdown, .stButton {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+/* Buttons */
+.stButton > button {
+    background: linear-gradient(90deg, #4b6cb7 0%, #182848 100%);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(90deg, #5b7cc7 0%, #283858 100%);
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: rgba(30, 30, 47, 0.95);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Headers */
+h1, h2, h3 {
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+/* Inputs */
+.stTextInput > div > div > input {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+}
+
+/* Success Message */
+.stSuccess {
+    background-color: rgba(75, 181, 67, 0.2);
+    border: 1px solid rgba(75, 181, 67, 0.4);
+    color: #4bb543;
+}
+
+/* Custom Box for History */
+.history-box {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border-left: 4px solid #4b6cb7;
+}
