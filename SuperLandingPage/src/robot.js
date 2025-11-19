@@ -22,70 +22,92 @@ document.addEventListener('keyup', (e) => {
 export function createRobot(scene) {
     const group = new THREE.Group();
 
-    // Body
-    const bodyGeo = new THREE.BoxGeometry(1, 1, 1);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 1.5;
-    body.castShadow = true;
-    group.add(body);
+    const material = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        metalness: 0.7,
+        roughness: 0.2,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1
+    });
+
+    const jointMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+    // Torso (Capsule-like)
+    const torsoGeo = new THREE.CylinderGeometry(0.4, 0.3, 1.2, 16);
+    const torso = new THREE.Mesh(torsoGeo, material);
+    torso.position.y = 1.6;
+    torso.castShadow = true;
+    group.add(torso);
 
     // Head
-    const headGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const head = new THREE.Mesh(headGeo, headMat);
+    const headGeo = new THREE.SphereGeometry(0.35, 32, 32);
+    const head = new THREE.Mesh(headGeo, material);
     head.position.y = 2.4;
     head.castShadow = true;
     group.add(head);
 
-    // Eyes (Emissive)
-    const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00 });
+    // Visor (Glowing)
+    const visorGeo = new THREE.BoxGeometry(0.4, 0.1, 0.2);
+    const visorMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, emissive: 0x00ffff });
+    const visor = new THREE.Mesh(visorGeo, visorMat);
+    visor.position.set(0, 2.4, 0.25);
+    group.add(visor);
 
-    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-0.15, 2.4, 0.3);
-    group.add(leftEye);
+    // Arms
+    function createLimb(x, y, z) {
+        const limbGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.8, 16);
+        const limb = new THREE.Mesh(limbGeo, material);
+        limb.position.set(x, y, z);
+        limb.castShadow = true;
+        return limb;
+    }
 
-    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rightEye.position.set(0.15, 2.4, 0.3);
-    group.add(rightEye);
+    const leftArm = createLimb(-0.55, 1.8, 0);
+    group.add(leftArm);
+    const rightArm = createLimb(0.55, 1.8, 0);
+    group.add(rightArm);
 
-    // Wheels/Legs
-    const wheelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+    // Shoulders
+    const shoulderGeo = new THREE.SphereGeometry(0.15);
+    const leftShoulder = new THREE.Mesh(shoulderGeo, jointMat);
+    leftShoulder.position.set(-0.55, 2.1, 0);
+    group.add(leftShoulder);
+    const rightShoulder = new THREE.Mesh(shoulderGeo, jointMat);
+    rightShoulder.position.set(0.55, 2.1, 0);
+    group.add(rightShoulder);
 
-    const leftWheel = new THREE.Mesh(wheelGeo, wheelMat);
-    leftWheel.rotation.z = Math.PI / 2;
-    leftWheel.position.set(-0.6, 1, 0);
-    leftWheel.castShadow = true;
-    group.add(leftWheel);
+    // Hover Unit (instead of legs for futuristic feel)
+    const hoverGeo = new THREE.CylinderGeometry(0.2, 0.1, 0.4, 16);
+    const hover = new THREE.Mesh(hoverGeo, jointMat);
+    hover.position.y = 0.8;
+    group.add(hover);
 
-    const rightWheel = new THREE.Mesh(wheelGeo, wheelMat);
-    rightWheel.rotation.z = Math.PI / 2;
-    rightWheel.position.set(0.6, 1, 0);
-    rightWheel.castShadow = true;
-    group.add(rightWheel);
+    // Glow Ring at bottom
+    const ringGeo = new THREE.TorusGeometry(0.3, 0.05, 8, 32);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, emissive: 0x00ffff });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.6;
+    group.add(ring);
 
     scene.add(group);
 
     return {
         mesh: group,
-        speed: 0.1,
-        rotationSpeed: 0.05
+        speed: 0.15,
+        rotationSpeed: 0.05,
+        bobOffset: 0
     };
 }
 
 export function updateRobot(robot) {
-    if (keys.w) {
-        robot.mesh.translateZ(robot.speed);
-    }
-    if (keys.s) {
-        robot.mesh.translateZ(-robot.speed);
-    }
-    if (keys.a) {
-        robot.mesh.rotation.y += robot.rotationSpeed;
-    }
-    if (keys.d) {
-        robot.mesh.rotation.y -= robot.rotationSpeed;
-    }
+    // Movement
+    if (keys.w) robot.mesh.translateZ(robot.speed);
+    if (keys.s) robot.mesh.translateZ(-robot.speed);
+    if (keys.a) robot.mesh.rotation.y += robot.rotationSpeed;
+    if (keys.d) robot.mesh.rotation.y -= robot.rotationSpeed;
+
+    // Hover Animation (Bobbing)
+    robot.bobOffset += 0.1;
+    robot.mesh.position.y = Math.sin(robot.bobOffset) * 0.05;
 }

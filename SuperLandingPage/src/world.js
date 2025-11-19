@@ -3,42 +3,64 @@ import * as THREE from 'three';
 export function createWorld(scene) {
     const buildings = [];
 
-    // 1. Ground (Grass)
-    const groundGeometry = new THREE.PlaneGeometry(100, 100);
+    // 1. Ground (Sleek Dark Grid)
+    const groundGeometry = new THREE.PlaneGeometry(200, 200);
     const groundMaterial = new THREE.MeshStandardMaterial({
-        color: 0x4caf50,
-        roughness: 0.8
+        color: 0x0a0a0a,
+        roughness: 0.1,
+        metalness: 0.5
     });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // 2. Buildings (Menu Items)
+    // Grid Helper
+    const gridHelper = new THREE.GridHelper(200, 50, 0x00ffff, 0x222222);
+    scene.add(gridHelper);
 
-    // Helper to create a building
+    // 2. Buildings (Futuristic Skyscrapers)
+
     function createBuilding(x, z, color, label, title, content) {
-        const geometry = new THREE.BoxGeometry(3, 4, 3);
-        const material = new THREE.MeshStandardMaterial({ color: color });
+        const group = new THREE.Group();
+        group.position.set(x, 0, z);
+
+        // Main Tower
+        const geometry = new THREE.BoxGeometry(4, 12, 4);
+        const material = new THREE.MeshPhysicalMaterial({
+            color: color,
+            metalness: 0.9,
+            roughness: 0.1,
+            transparent: true,
+            opacity: 0.8,
+            transmission: 0.5
+        });
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(x, 2, z);
+        mesh.position.y = 6; // Half height
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-        scene.add(mesh);
+        group.add(mesh);
 
-        // Simple "Sign" (Text Texture could be added here, using color for now)
+        // Glowing Edges / Neon Strips
+        const glowGeo = new THREE.BoxGeometry(4.1, 12, 0.2);
+        const glowMat = new THREE.MeshBasicMaterial({ color: color, emissive: color, emissiveIntensity: 2 });
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.position.y = 6;
+        group.add(glow);
+
+        scene.add(group);
 
         buildings.push({
-            mesh: mesh,
+            mesh: group, // Use group for position checks
             title: title,
             content: content,
             triggered: false
         });
     }
 
-    createBuilding(0, -10, 0xff5722, "Start", "Welcome to Robotizze", "We automate your future. Explore our world to learn more about our AI solutions.");
-    createBuilding(-10, -5, 0x2196f3, "Services", "Our Services", "1. Custom AI Development\n2. Process Automation\n3. 3D Web Experiences\n4. Cloud Architecture");
-    createBuilding(10, -5, 0x9c27b0, "Contact", "Contact Us", "Email: hello@robotizze.com\nPhone: +1 (555) 123-4567\nLocation: The Metaverse");
+    createBuilding(0, -15, 0x00ffff, "Start", "Welcome to Robotizze", "We automate your future. Explore our world to learn more about our AI solutions.");
+    createBuilding(-15, -5, 0x0088ff, "Services", "Our Services", "1. Custom AI Development\n2. Process Automation\n3. 3D Web Experiences\n4. Cloud Architecture");
+    createBuilding(15, -5, 0xff00ff, "Contact", "Contact Us", "Email: hello@robotizze.com\nPhone: +1 (555) 123-4567\nLocation: The Metaverse");
 
     return {
         ground,
@@ -47,8 +69,9 @@ export function createWorld(scene) {
 }
 
 export function updateWorld(world) {
-    // Animate buildings slightly?
-    world.buildings.forEach(b => {
-        b.mesh.rotation.y += 0.005;
+    // Animate buildings (pulse effect?)
+    const time = Date.now() * 0.001;
+    world.buildings.forEach((b, i) => {
+        b.mesh.position.y = Math.sin(time + i) * 0.2; // Gentle floating
     });
 }

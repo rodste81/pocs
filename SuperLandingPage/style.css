@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap');
 
 body {
     margin: 0;
     overflow: hidden;
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Rajdhani', sans-serif;
 }
 
 canvas {
@@ -21,22 +21,26 @@ canvas {
 
 #instructions {
     position: absolute;
-    top: 20px;
-    left: 20px;
-    color: white;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 15px;
-    border-radius: 8px;
-    font-family: 'Press Start 2P', cursive;
-    font-size: 12px;
-    line-height: 1.5;
+    top: 30px;
+    left: 30px;
+    color: #00ffff;
+    background: rgba(0, 10, 20, 0.6);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    letter-spacing: 1px;
     pointer-events: auto;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
 }
 
 #instructions h1 {
     margin: 0 0 10px 0;
-    color: #4caf50;
-    text-shadow: 2px 2px 0 #000;
+    color: white;
+    text-transform: uppercase;
+    font-size: 18px;
 }
 
 #modal-overlay {
@@ -45,12 +49,13 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
     display: flex;
     justify-content: center;
     align-items: center;
     pointer-events: auto;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
 }
 
 .hidden {
@@ -59,41 +64,60 @@ canvas {
 }
 
 #modal-content {
-    background: white;
-    padding: 40px;
-    border-radius: 15px;
-    max-width: 500px;
+    background: rgba(10, 20, 30, 0.85);
+    padding: 50px;
+    border-radius: 20px;
+    max-width: 600px;
     text-align: center;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    border: 4px solid #4caf50;
+    box-shadow: 0 0 50px rgba(0, 255, 255, 0.2);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+#modal-content::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #00ffff, #ff00ff);
 }
 
 #modal-title {
-    font-family: 'Press Start 2P', cursive;
-    color: #2e7d32;
+    font-family: 'Orbitron', sans-serif;
+    color: #00ffff;
+    font-size: 32px;
     margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 #modal-body {
-    font-size: 16px;
-    line-height: 1.6;
-    color: #333;
-    margin-bottom: 30px;
+    font-size: 18px;
+    line-height: 1.8;
+    color: #e0e0e0;
+    margin-bottom: 40px;
+    font-weight: 300;
 }
 
 #close-modal {
-    background: #4caf50;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    font-family: 'Press Start 2P', cursive;
-    font-size: 12px;
+    background: transparent;
+    color: #00ffff;
+    border: 1px solid #00ffff;
+    padding: 12px 30px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
     cursor: pointer;
-    border-radius: 5px;
-    transition: transform 0.1s;
+    border-radius: 4px;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 #close-modal:hover {
-    transform: scale(1.05);
-    background: #43a047;
+    background: rgba(0, 255, 255, 0.1);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
 }
