@@ -8,8 +8,11 @@ from database import save_merged_file, get_user_history
 # Page Config
 st.set_page_config(page_title="TextMerge", page_icon="📄", layout="wide")
 
+import os
+
 # Load Custom CSS
-with open("styles.css") as f:
+css_file = os.path.join(os.path.dirname(__file__), "styles.css")
+with open(css_file) as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # Initialize Session State
