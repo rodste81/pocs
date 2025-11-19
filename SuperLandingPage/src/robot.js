@@ -4,18 +4,24 @@ const keys = {
     w: false,
     a: false,
     s: false,
-    d: false
+    d: false,
+    arrowup: false,
+    arrowdown: false,
+    arrowleft: false,
+    arrowright: false
 };
 
 document.addEventListener('keydown', (e) => {
-    if (keys.hasOwnProperty(e.key.toLowerCase())) {
-        keys[e.key.toLowerCase()] = true;
+    const key = e.key.toLowerCase();
+    if (keys.hasOwnProperty(key)) {
+        keys[key] = true;
     }
 });
 
 document.addEventListener('keyup', (e) => {
-    if (keys.hasOwnProperty(e.key.toLowerCase())) {
-        keys[e.key.toLowerCase()] = false;
+    const key = e.key.toLowerCase();
+    if (keys.hasOwnProperty(key)) {
+        keys[key] = false;
     }
 });
 
@@ -102,10 +108,10 @@ export function createRobot(scene) {
 
 export function updateRobot(robot) {
     // Movement
-    if (keys.w) robot.mesh.translateZ(robot.speed);
-    if (keys.s) robot.mesh.translateZ(-robot.speed);
-    if (keys.a) robot.mesh.rotation.y += robot.rotationSpeed;
-    if (keys.d) robot.mesh.rotation.y -= robot.rotationSpeed;
+    if (keys.w || keys.arrowup) robot.mesh.translateZ(robot.speed);
+    if (keys.s || keys.arrowdown) robot.mesh.translateZ(-robot.speed);
+    if (keys.a || keys.arrowleft) robot.mesh.rotation.y += robot.rotationSpeed;
+    if (keys.d || keys.arrowright) robot.mesh.rotation.y -= robot.rotationSpeed;
 
     // Hover Animation (Bobbing)
     robot.bobOffset += 0.1;

@@ -38,6 +38,7 @@ export function checkInteractions(robot, world) {
 }
 
 function openModal(title, content) {
+    document.exitPointerLock(); // Unlock mouse to interact with modal
     modalTitle.innerText = title;
     modalBody.innerText = content; // Use innerText to preserve newlines
     modalOverlay.classList.remove('hidden');
