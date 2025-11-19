@@ -1,0 +1,5 @@
+{
+  "name": "Shorts Creator",
+  "description": "An application that creates a short, animated video with narration and subtitles from a 5-scene storyboard. The output is in Portuguese and formatted for YouTube Shorts.",
+  "requestFramePermissions": []
+}
