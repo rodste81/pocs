@@ -148,24 +148,25 @@ def load_css():
         color: white;
     }
     
-    /* Login/Register Card */
-    .auth-card {
+    /* Login/Register Card (Styled Form) */
+    [data-testid="stForm"] {
         background: white;
         padding: 3rem;
         border-radius: 20px;
         box-shadow: 0 10px 40px rgba(0,0,0,0.1);
         max-width: 450px;
         margin: 0 auto;
+        border: none;
     }
     
-    .auth-card h2 {
+    [data-testid="stForm"] h2 {
         color: #2D3748;
         font-size: 2rem;
         margin-bottom: 0.5rem;
         text-align: center;
     }
     
-    .auth-card p {
+    [data-testid="stForm"] p {
         color: #6B7280;
         text-align: center;
         margin-bottom: 2rem;
@@ -280,11 +281,11 @@ def mostrar_hero():
 
 def mostrar_login():
     """Mostra o formulário de login"""
-    st.markdown('<div class="auth-card">', unsafe_allow_html=True)
-    st.markdown('<h2>🔐 Iniciar Sesión</h2>', unsafe_allow_html=True)
-    st.markdown('<p>Ingresa tus credenciales para acceder</p>', unsafe_allow_html=True)
     
     with st.form("login_form"):
+        st.markdown('<h2>🔐 Iniciar Sesión</h2>', unsafe_allow_html=True)
+        st.markdown('<p>Ingresa tus credenciales para acceder</p>', unsafe_allow_html=True)
+        
         email = st.text_input("📧 E-Mail", placeholder="tu@email.com")
         password = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
         recordar = st.checkbox("Recordarme por 30 días")
@@ -305,15 +306,14 @@ def mostrar_login():
     st.markdown('<div class="auth-links">', unsafe_allow_html=True)
     st.markdown('¿Olvidaste tu <a href="#">contraseña</a>?', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def mostrar_registro():
     """Mostra o formulário de registro"""
-    st.markdown('<div class="auth-card">', unsafe_allow_html=True)
-    st.markdown('<h2>📝 Crear Cuenta</h2>', unsafe_allow_html=True)
-    st.markdown('<p>Regístrate para comenzar a usar MarangatuListo</p>', unsafe_allow_html=True)
     
     with st.form("register_form"):
+        st.markdown('<h2>📝 Crear Cuenta</h2>', unsafe_allow_html=True)
+        st.markdown('<p>Regístrate para comenzar a usar MarangatuListo</p>', unsafe_allow_html=True)
+        
         nombre = st.text_input("👤 Nombre Completo", placeholder="Juan Pérez")
         ruc = st.text_input("🏢 RUC", placeholder="12345678-9")
         email = st.text_input("📧 E-Mail", placeholder="tu@email.com")
@@ -337,8 +337,6 @@ def mostrar_registro():
                     st.success("✅ ¡Registro exitoso! Por favor, verifica tu email.")
                 else:
                     st.error(f"❌ {error}")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def main():
     # Cargar CSS

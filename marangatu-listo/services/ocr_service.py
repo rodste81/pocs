@@ -1,9 +1,9 @@
 import os
-from google import genai
-from google.genai import types
-import base64
-from typing import Dict, Optional
+import google.generativeai as genai
+from PIL import Image
+import io
 import json
+from typing import Dict, Optional
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,152 +15,100 @@ class OCRService:
         if not api_key:
             raise ValueError("GEMINI_API_KEY não encontrada nas variáveis de ambiente")
         
-        self.client = genai.Client(api_key=api_key)
-    
-    def extract_factura_data(self, image_bytes: bytes) -> Dict[str, Optional[str]]:
+        genai.configure(api_key=api_key)
+        
+        # Configuração do modelo
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        self.generation_config = genai.GenerationConfig(
+            temperature=0.1,
+            top_p=1,
+            top_k=32,
+            max_output_tokens=2048,
+        )
+
+    def extract_data_from_image(self, image_bytes: bytes) -> Dict[str, Optional[str]]:
         """
-        Extrai dados estruturados de uma factura usando Google Gemini
+        Extrai dados estruturados de uma imagem de factura usando Gemini
         
         Args:
-            image_bytes: Bytes da imagem da factura
+            image_bytes: Bytes da imagem
             
         Returns:
             Dicionário com fecha, local, valor, ruc_emisor
         """
         try:
-            # Converter imagem para base64
-            image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+            # Carregar imagem
+            image = Image.open(io.BytesIO(image_bytes))
             
-            # Prompt para extrair dados da factura paraguaia
-            prompt = """Analiza esta imagen de una factura paraguaya y extrae los siguientes datos en formato JSON:
-
-{
-  "fecha": "fecha de la factura en formato DD/MM/YYYY",
-  "local": "nombre del establecimiento o comercio",
-  "valor": "valor total en guaraníes (solo el número, sin puntos ni comas)",
-  "ruc_emisor": "RUC del emisor en formato 12345678-9"
-}
-
-REGLAS IMPORTANTES:
-- Si no encuentras algún dato, usa null
-- Para el valor, extrae solo números (ejemplo: si dice "Gs. 150.000", retorna "150000")
-- El RUC debe tener el formato XXXXXXXX-X (8 dígitos, guión, 1 dígito)
-- La fecha debe estar en formato DD/MM/YYYY
-- Retorna SOLO el JSON, sin texto adicional
-
-Analiza cuidadosamente la factura y extrae los datos solicitados."""
-
-            # Chamar Gemini com visão
-            response = self.client.models.generate_content(
-                model='gemini-2.0-flash-exp',
-                contents=[
-                    types.Content(
-                        role="user",
-                        parts=[
-                            types.Part.from_text(prompt),
-                            types.Part.from_bytes(
-                                data=image_bytes,
-                                mime_type="image/jpeg"
-                            )
-                        ]
-                    )
-                ]
+            prompt = """
+            Analise esta imagem de uma nota fiscal/factura do Paraguai e extraia os seguintes dados em formato JSON estrito:
+            
+            1. "fecha": Data da emissão (formato DD/MM/YYYY)
+            2. "local": Nome do estabelecimento comercial
+            3. "valor": Valor total da compra (apenas números, sem pontos de milhar, use ponto para decimais se houver. Ex: 150000)
+            4. "ruc_emisor": RUC do emissor (formato XXXXXX-X)
+            
+            Se algum campo não estiver visível ou claro, retorne null.
+            Responda APENAS o JSON, sem markdown ou explicações adicionais.
+            """
+            
+            response = self.model.generate_content(
+                [prompt, image],
+                generation_config=self.generation_config
             )
             
-            # Extrair resposta
-            result_text = response.text.strip()
+            # Limpar resposta para garantir JSON válido
+            text_response = response.text.strip()
+            if text_response.startswith("```json"):
+                text_response = text_response[7:]
+            if text_response.endswith("```"):
+                text_response = text_response[:-3]
             
-            # Tentar extrair JSON da resposta
-            # Remove markdown code blocks se existirem
-            if "```json" in result_text:
-                result_text = result_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in result_text:
-                result_text = result_text.split("```")[1].split("```")[0].strip()
+            data = json.loads(text_response)
             
-            # Parse JSON
-            data = json.loads(result_text)
-            
-            # Validar e limpar dados
+            # Garantir estrutura de retorno
             return {
                 "fecha": data.get("fecha"),
                 "local": data.get("local"),
-                "valor": str(data.get("valor")) if data.get("valor") else None,
+                "valor": str(data.get("valor")) if data.get("valor") is not None else None,
                 "ruc_emisor": data.get("ruc_emisor")
             }
             
-        except json.JSONDecodeError as e:
-            print(f"Erro ao fazer parse do JSON: {e}")
-            print(f"Resposta recebida: {result_text}")
-            # Retornar dados vazios em caso de erro
+        except Exception as e:
+            print(f"Erro na extração com Gemini: {e}")
             return {
                 "fecha": None,
                 "local": None,
                 "valor": None,
                 "ruc_emisor": None
             }
-        except Exception as e:
-            print(f"Erro ao processar imagem: {e}")
-            raise
-    
-    def parse_factura(self, text: str = None) -> Dict[str, Optional[str]]:
+
+    # Mantendo compatibilidade com o código anterior se necessário, 
+    # mas o método principal agora é extract_data_from_image que faz tudo
+    def extract_text_from_image(self, image_bytes: bytes) -> str:
+        """Método legado/wrapper"""
+        data = self.extract_data_from_image(image_bytes)
+        return str(data)
+
+    def parse_factura(self, text: str) -> Dict[str, Optional[str]]:
         """
-        Analisa o texto extraído e retorna informações da factura
-        
-        Args:
-            text: Texto extraído da factura
-            
-        Returns:
-            Dicionário com fecha, local, valor, ruc_emisor
+        Método legado. No fluxo novo, o extract_data_from_image já retorna o dict.
+        Se este método for chamado com o resultado de extract_text_from_image (que agora retorna string do dict),
+        tentamos parsear de volta.
         """
-        result = {
-            "fecha": None,
-            "local": None,
-            "valor": None,
-            "ruc_emisor": None
-        }
-        
-        # Buscar RUC (formato paraguaio: 12345678-9)
-        ruc_match = re.search(r'\b\d{6,8}-\d\b', text)
-        if ruc_match:
-            result["ruc_emisor"] = ruc_match.group()
-        
-        # Buscar valor total (Gs. o guaraníes)
-        # Padrões comuns: "Total: Gs. 150.000", "TOTAL Gs 150000", etc.
-        valor_patterns = [
-            r'total[:\s]+gs\.?\s*([\d.,]+)',
-            r'gs\.?\s*([\d.,]+)',
-            r'guaraníes[:\s]+([\d.,]+)'
-        ]
-        
-        for pattern in valor_patterns:
-            valor_match = re.search(pattern, text.lower())
-            if valor_match:
-                # Remove pontos de milhar e substitui vírgula por ponto
-                valor_str = valor_match.group(1).replace('.', '').replace(',', '.')
-                result["valor"] = valor_str
-                break
-        
-        # Buscar data (formatos: DD/MM/YYYY, DD-MM-YYYY, etc.)
-        fecha_patterns = [
-            r'\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b',
-            r'\b(\d{1,2}\s+de\s+\w+\s+de\s+\d{4})\b'
-        ]
-        
-        for pattern in fecha_patterns:
-            fecha_match = re.search(pattern, text)
-            if fecha_match:
-                result["fecha"] = fecha_match.group(1)
-                break
-        
-        # Buscar local/nombre del establecimiento
-        # Geralmente é uma das primeiras linhas
-        lines = text.split('\n')
-        for line in lines[:5]:  # Nas primeiras 5 linhas
-            if len(line.strip()) > 5 and not line.strip().isdigit():
-                if result["local"] is None:
-                    result["local"] = line.strip()
-                    break
-        
-        return result
+        try:
+            # Se o texto for uma representação de string de um dict, tenta converter
+            if isinstance(text, dict):
+                return text
+            import ast
+            return ast.literal_eval(text)
+        except:
+            return {
+                "fecha": None,
+                "local": None,
+                "valor": None,
+                "ruc_emisor": None
+            }
 
 ocr_service = OCRService()

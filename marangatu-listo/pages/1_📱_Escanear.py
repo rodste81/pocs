@@ -301,31 +301,31 @@ def processar_imagen(image_file, usuario):
         # Mostrar preview
         st.image(image_file, caption="Vista previa de la factura", use_container_width=True)
         
-        with st.spinner("🔍 Extrayendo datos de la factura con Gemini AI..."):
+        with st.spinner("🔍 Extrayendo datos de la factura..."):
             # Leer bytes da imagem
             image_bytes = image_file.getvalue()
             
-            # Extrair dados direto da imagem usando Gemini
-            datos = ocr_service.extract_factura_data(image_bytes)
+            # Extrair dados diretamente com Gemini
+            datos = ocr_service.extract_data_from_image(image_bytes)
             
             # Adicionar dados do usuário
             datos['user_id'] = usuario['id']
             datos['usuario_ruc'] = usuario['ruc']
             
             # Mostrar dados extraídos para edição
-            st.success("✅ Datos extraídos con éxito usando Gemini AI!")
+            st.success("✅ Datos extraídos con éxito!")
             
             st.markdown("### 📝 Verificar y Editar Datos")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                datos['fecha'] = st.text_input("📅 Fecha", value=datos.get('fecha', '') or '')
-                datos['valor'] = st.text_input("💰 Valor (Gs.)", value=datos.get('valor', '') or '')
+                datos['fecha'] = st.text_input("📅 Fecha", value=datos.get('fecha', ''))
+                datos['valor'] = st.text_input("💰 Valor (Gs.)", value=datos.get('valor', ''))
             
             with col2:
-                datos['local'] = st.text_input("🏪 Local", value=datos.get('local', '') or '')
-                datos['ruc_emisor'] = st.text_input("🏢 RUC Emisor", value=datos.get('ruc_emisor', '') or '')
+                datos['local'] = st.text_input("🏪 Local", value=datos.get('local', ''))
+                datos['ruc_emisor'] = st.text_input("🏢 RUC Emisor", value=datos.get('ruc_emisor', ''))
             
             # Botões de ação
             col1, col2, col3 = st.columns([1, 2, 1])

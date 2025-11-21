@@ -5,17 +5,22 @@ import { decode, decodeAudioData } from '../utils/audio';
 interface VideoPlayerProps {
   scenes: Scene[];
   onRecordingComplete: (download: { url: string; extension: string }) => void;
+  outroVideoUrl?: string;
 }
 
 const VIDEO_WIDTH = 405; // 9:16 aspect ratio
 const VIDEO_HEIGHT = 720;
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }) => {
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete, outroVideoUrl = '/curta.mp4' }) => {
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
+
+  // Outro video refs
+  const outroVideoRef = useRef<HTMLVideoElement | null>(null);
+  const outroSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
 
   // For recording
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -92,6 +97,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
 
+    // Preload outro video
+    const video = document.createElement('video');
+    video.src = outroVideoUrl;
+    video.crossOrigin = "anonymous";
+    video.muted = false; // We will route audio manually
+    video.playsInline = true;
+    video.load();
+    outroVideoRef.current = video;
+
     return () => {
       // Major cleanup on unmount
       if (audioSourceRef.current) audioSourceRef.current.stop();
@@ -99,9 +113,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }
       if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
+      if (outroVideoRef.current) {
+        outroVideoRef.current.pause();
+        outroVideoRef.current.src = "";
+        outroVideoRef.current = null;
+      }
       audioContextRef.current?.close();
     };
-  }, []);
+  }, [outroVideoUrl]);
 
   const drawSceneOnCanvas = (scene: Scene, imageElement: HTMLImageElement, progress: number) => {
     const canvas = canvasRef.current;
@@ -228,6 +247,64 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }
     });
   };
 
+  const playOutro = (): Promise<void> => {
+    return new Promise((resolve) => {
+      const video = outroVideoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      const audioContext = audioContextRef.current;
+
+      if (!video || !canvas || !ctx || !audioContext) {
+        console.warn("Missing resources for outro");
+        return resolve();
+      }
+
+      console.log("Starting outro...");
+
+      // Connect video audio to destination and recorder
+      if (!outroSourceNodeRef.current) {
+        try {
+          outroSourceNodeRef.current = audioContext.createMediaElementSource(video);
+          outroSourceNodeRef.current.connect(audioContext.destination);
+          if (mediaStreamDestinationRef.current) {
+            outroSourceNodeRef.current.connect(mediaStreamDestinationRef.current);
+          }
+        } catch (e) {
+          console.error("Error creating MediaElementSource for outro:", e);
+        }
+      }
+
+      video.onended = () => {
+        console.log("Outro finished");
+        resolve();
+      };
+
+      video.onerror = (e) => {
+        console.error("Error playing outro video:", e);
+        resolve();
+      }
+
+      video.play().catch(e => {
+        console.error("Failed to play outro video:", e);
+        resolve();
+      });
+
+      const drawVideo = () => {
+        if (video.paused || video.ended) return;
+
+        // Draw video frame to canvas, maintaining aspect ratio or filling
+        // Assuming outro is also 9:16 or we want to fit it
+        // Let's fill height and crop width if necessary, or just drawImage
+        // If curta.mp4 is 9:16, it fits perfectly.
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        animationFrameRef.current = requestAnimationFrame(drawVideo);
+      };
+
+      drawVideo();
+    });
+  };
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
@@ -262,6 +339,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }
         setCurrentSceneIndex(i);
         await playScene(i);
       }
+
+      console.log("Playing outro...");
+      await playOutro();
+
       console.log("Playback finished successfully");
     } catch (error) {
       console.error("Error during playback:", error);
@@ -270,6 +351,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ scenes, onRecordingComplete }
         console.log("Stopping MediaRecorder");
         mediaRecorderRef.current.stop();
       }
+      setIsPlaying(false); // Reset playing state
     }
   };
 

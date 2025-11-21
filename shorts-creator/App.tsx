@@ -1,149 +1,243 @@
-import React, { useState, useCallback } from 'react';
-import { createSceneAssets } from './services/geminiService';
-import { Scene } from './types';
+import React, { useState, useEffect, useRef } from 'react';
 import VideoPlayer from './components/VideoPlayer';
-import Loader from './components/Loader';
+import { createSceneAssets, generateFilename } from './services/geminiService';
+import { Scene } from './types';
 
-const App: React.FC = () => {
-  const [storyboard, setStoryboard] = useState('');
-  const [scenes, setScenes] = useState<Scene[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [downloadInfo, setDownloadInfo] = useState<{ url: string; extension: string } | null>(null);
+interface QueueItem {
+  id: string;
+  storyboard: string;
+  status: 'pending' | 'generating' | 'ready' | 'playing' | 'done' | 'error';
+  scenes?: Scene[];
+  filename?: string;
+  error?: string;
+}
 
-  const handleCreateVideo = useCallback(async () => {
-    const sceneDescriptions = storyboard
-      .split(/CENA\s+\d+\s*[:-—]?/i)
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
+function App() {
+  const [storyboards, setStoryboards] = useState<string[]>(['', '', '']);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-    if (sceneDescriptions.length === 0) {
-      setError("O storyboard não pode estar vazio. Use o formato 'CENA 1: ...' para definir suas cenas.");
-      return;
-    }
-    if (sceneDescriptions.length > 5) {
-      setError("Por favor, forneça no máximo 5 cenas.");
-      return;
-    }
+  // Ref to track if we are currently playing a video to avoid race conditions
+  const isPlayingRef = useRef(false);
 
-    setIsLoading(true);
-    setError(null);
-    setScenes([]);
-    setDownloadInfo(null);
-
-    try {
-      const generatedScenes: Scene[] = [];
-      const totalScenes = sceneDescriptions.length;
-      for (let i = 0; i < totalScenes; i++) {
-        const description = sceneDescriptions[i];
-        setLoadingMessage(`Criando recursos para a cena ${i + 1}/${totalScenes}...`);
-        const scene = await createSceneAssets(description, i + 1, sceneDescriptions);
-        generatedScenes.push(scene);
-      }
-      setScenes(generatedScenes);
-    } catch (err) {
-      console.error(err);
-      if (err instanceof Error && err.message === 'API_RATE_LIMIT_EXCEEDED') {
-        setError('Sua cota de API foi excedida após múltiplas tentativas. Isso é comum no plano gratuito.');
-      } else {
-        setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    } finally {
-      setIsLoading(false);
-      setLoadingMessage('');
-    }
-  }, [storyboard]);
-
-  const resetApp = () => {
-    setStoryboard('');
-    setScenes([]);
-    setError(null);
-    setIsLoading(false);
-    setDownloadInfo(null);
-    if (downloadInfo) {
-      URL.revokeObjectURL(downloadInfo.url);
-    }
+  const handleStoryboardChange = (index: number, value: string) => {
+    const newStoryboards = [...storyboards];
+    newStoryboards[index] = value;
+    setStoryboards(newStoryboards);
   };
 
+  const addToQueue = () => {
+    const newItems: QueueItem[] = storyboards
+      .map((sb, index) => ({
+        id: `job-${Date.now()}-${index}`,
+        storyboard: sb,
+        status: 'pending' as const,
+      }))
+      .filter(item => item.storyboard.trim().length > 0);
+
+    if (newItems.length === 0) return;
+
+    setQueue(prev => [...prev, ...newItems]);
+    // Clear inputs? Maybe not, user might want to edit.
+    // setStoryboards(['', '', '']); 
+  };
+
+  // Processor Effect: Handles generation (API calls)
+  useEffect(() => {
+    const processQueue = async () => {
+      if (isProcessing) return;
+
+      const pendingIndex = queue.findIndex(item => item.status === 'pending');
+      if (pendingIndex === -1) return;
+
+      setIsProcessing(true);
+      const item = queue[pendingIndex];
+
+      // Update status to generating
+      setQueue(prev => prev.map((q, i) => i === pendingIndex ? { ...q, status: 'generating' } : q));
+
+      try {
+        console.log(`Generating assets for job ${item.id}...`);
+
+        // 1. Generate Filename
+        const filename = await generateFilename(item.storyboard);
+
+        // 2. Parse scenes
+        const sceneDescriptions = item.storyboard.split('\n').filter(line => line.trim() !== '');
+        const scenes: Scene[] = [];
+
+        // 3. Generate Assets
+        for (let i = 0; i < sceneDescriptions.length; i++) {
+          const scene = await createSceneAssets(sceneDescriptions[i], i + 1, sceneDescriptions);
+          scenes.push(scene);
+        }
+
+        // Update status to ready
+        setQueue(prev => prev.map((q, i) => i === pendingIndex ? { ...q, status: 'ready', scenes, filename } : q));
+
+      } catch (error: any) {
+        console.error(`Error processing job ${item.id}:`, error);
+        setQueue(prev => prev.map((q, i) => i === pendingIndex ? { ...q, status: 'error', error: error.message } : q));
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    processQueue();
+  }, [queue, isProcessing]);
+
+  // Player Effect: Feeds ready items to the player
+  useEffect(() => {
+    if (isPlayingRef.current) return;
+
+    const readyIndex = queue.findIndex(item => item.status === 'ready');
+    if (readyIndex !== -1) {
+      // Start playing this item
+      isPlayingRef.current = true;
+      setQueue(prev => prev.map((q, i) => i === readyIndex ? { ...q, status: 'playing' } : q));
+    }
+  }, [queue]);
+
+  const handleRecordingComplete = (download: { url: string; extension: string }) => {
+    const playingIndex = queue.findIndex(item => item.status === 'playing');
+    if (playingIndex === -1) return;
+
+    const item = queue[playingIndex];
+
+    // Trigger download
+    const a = document.createElement('a');
+    a.href = download.url;
+    a.download = `${item.filename || 'video'}.${download.extension}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    // Mark as done
+    setQueue(prev => prev.map((q, i) => i === playingIndex ? { ...q, status: 'done' } : q));
+    isPlayingRef.current = false;
+  };
+
+  const currentPlayingItem = queue.find(item => item.status === 'playing');
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
-            Shorts Creator
-          </h1>
-          <p className="text-gray-400 mt-2">
-            Digite seu storyboard de até 5 cenas para criar um vídeo animado com narração e legendas.
-          </p>
-        </header>
+    <div className="min-h-screen bg-gray-900 text-white p-8 font-sans">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-4xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+          Shorts Creator Studio
+        </h1>
 
-        {isLoading && <Loader message={loadingMessage} />}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          {/* Input Section */}
+          <div className="space-y-6">
+            <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
+              <h2 className="text-2xl font-semibold mb-4 flex items-center">
+                <span className="bg-purple-600 w-8 h-8 rounded-full flex items-center justify-center text-sm mr-3">1</span>
+                Storyboards
+              </h2>
 
-        {error && (
-          <div className="bg-red-900/50 border border-red-500 text-red-300 p-4 rounded-lg mb-6 w-full max-w-lg text-center">
-            <p>{error}</p>
-            {error.includes('cota de API') && (
-              <a
-                href="https://ai.google.dev/gemini-api/docs/billing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-purple-400 hover:underline mt-2 inline-block font-semibold"
-              >
-                Saiba como aumentar seus limites
-              </a>
-            )}
-          </div>
-        )}
+              <div className="space-y-4">
+                {storyboards.map((sb, index) => (
+                  <div key={index} className="relative">
+                    <span className="absolute top-2 left-2 bg-gray-700 text-xs px-2 py-1 rounded text-gray-300">
+                      Video {index + 1}
+                    </span>
+                    <textarea
+                      className="w-full h-32 bg-gray-900 border border-gray-600 rounded-xl p-4 pt-8 text-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none transition-all"
+                      placeholder={`Describe scenes for Video ${index + 1} (one per line)...`}
+                      value={sb}
+                      onChange={(e) => handleStoryboardChange(index, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
 
-        {!isLoading && scenes.length === 0 && (
-          <div className="w-full max-w-lg bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700">
-            <textarea
-              value={storyboard}
-              onChange={(e) => setStoryboard(e.target.value)}
-              placeholder={`Exemplo:
-CENA 1: Um astronauta flutuando no espaço, olhando para a Terra em silêncio. A imensidão azul contrasta com o vazio escuro.
-
-CENA 2 - Close-up do capacete do astronauta. O reflexo mostra estrelas e galáxias distantes. Um sentimento de solidão e maravilha.
-
-CENA 3: A nave espacial passa silenciosamente por um anel de asteroides brilhantes...`}
-              className="w-full h-48 p-4 bg-gray-900/50 border border-gray-600 rounded-md focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all resize-none placeholder-gray-500"
-            />
-            <button
-              onClick={handleCreateVideo}
-              disabled={isLoading}
-              className="w-full mt-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-900/50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-md transition-transform transform hover:scale-105"
-            >
-              Criar Vídeo
-            </button>
-          </div>
-        )}
-
-        {scenes.length > 0 && !isLoading && (
-          <div className="w-full flex flex-col items-center">
-            <VideoPlayer scenes={scenes} onRecordingComplete={setDownloadInfo} />
-            <div className="flex items-center space-x-4 mt-6">
-              {downloadInfo && (
-                <a
-                  href={downloadInfo.url}
-                  download={`shorts_creator_video.${downloadInfo.extension}`}
-                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-md transition-transform transform hover:scale-105"
-                >
-                  Download Vídeo
-                </a>
-              )}
               <button
-                onClick={resetApp}
-                className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-md transition-all"
+                onClick={addToQueue}
+                disabled={storyboards.every(s => !s.trim()) || isProcessing}
+                className={`w-full mt-6 py-4 rounded-xl font-bold text-lg shadow-lg transition-all transform hover:scale-[1.02] ${isProcessing || storyboards.every(s => !s.trim())
+                    ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+                    : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white'
+                  }`}
               >
-                Criar Novo Vídeo
+                {isProcessing ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing Queue...
+                  </span>
+                ) : (
+                  'Add to Queue & Generate'
+                )}
               </button>
             </div>
+
+            {/* Queue Status */}
+            {queue.length > 0 && (
+              <div className="bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-700">
+                <h3 className="text-xl font-semibold mb-4">Production Queue</h3>
+                <div className="space-y-3">
+                  {queue.map((item, index) => (
+                    <div key={item.id} className="flex items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-700">
+                      <div className="flex items-center overflow-hidden">
+                        <span className={`w-3 h-3 rounded-full mr-3 ${item.status === 'done' ? 'bg-green-500' :
+                            item.status === 'playing' ? 'bg-blue-500 animate-pulse' :
+                              item.status === 'ready' ? 'bg-yellow-500' :
+                                item.status === 'generating' ? 'bg-purple-500 animate-pulse' :
+                                  item.status === 'error' ? 'bg-red-500' :
+                                    'bg-gray-500'
+                          }`}></span>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-medium truncate text-sm text-gray-200">
+                            {item.filename || `Job #${index + 1}`}
+                          </span>
+                          <span className="text-xs text-gray-500 truncate max-w-[200px]">
+                            {item.storyboard}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-xs font-mono uppercase tracking-wider text-gray-400 ml-2">
+                        {item.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Preview Section */}
+          <div className="flex flex-col items-center justify-start space-y-6">
+            <div className="bg-gray-800 p-2 rounded-[2rem] shadow-2xl border-4 border-gray-700">
+              {currentPlayingItem && currentPlayingItem.scenes ? (
+                <VideoPlayer
+                  key={currentPlayingItem.id} // Force remount for new items
+                  scenes={currentPlayingItem.scenes}
+                  onRecordingComplete={handleRecordingComplete}
+                  outroVideoUrl="/curta.mp4"
+                />
+              ) : (
+                <div className="w-[360px] aspect-[9/16] bg-black rounded-2xl flex flex-col items-center justify-center text-gray-500 border-2 border-gray-800 border-dashed">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <p>Waiting for content...</p>
+                </div>
+              )}
+            </div>
+
+            {currentPlayingItem && (
+              <div className="text-center animate-fade-in">
+                <p className="text-purple-400 font-medium">Now Playing & Recording:</p>
+                <p className="text-xl font-bold">{currentPlayingItem.filename}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
-};
+}
 
 export default App;

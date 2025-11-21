@@ -29,7 +29,9 @@ async function makeApiCallWithRetry<T>(
             const isRateLimitError = error.message && error.message.includes('429');
 
             if (!isRateLimitError) {
-                console.error("Non-rate-limit error occurred, failing immediately:", error.message);
+                console.error("Non-rate-limit error occurred, failing immediately:", JSON.stringify(error, null, 2));
+                // Also log the message directly in case it's not enumerable
+                console.error("Error message:", error.message);
                 throw error;
             }
 
@@ -91,7 +93,7 @@ Specific Scene to Generate:
 
 IMPORTANT RULES:
 - The image must be a SINGLE frame. NO multiple panels, NO collages, NO split screens.
-- ABSOLUTELY NO TEXT, NO LETTERS, NO NUMBERS, NO SIGNAGE in the image.
+- ABSOLUTELY NO TEXT, NO LETTERS, NO NUMBERS, NO SIGNAGE, NO SPEECH BUBBLES in the image. The image must be purely visual.
 - The image aspect ratio is vertical (9:16).
 - Focus on the visual elements described.`;
 
@@ -114,9 +116,29 @@ IMPORTANT RULES:
     return `data:image/jpeg;base64,${base64ImageBytes}`;
 }
 
+export async function generateFilename(storyboard: string): Promise<string> {
+    const prompt = `Generate a short, concise, and relevant filename (slug format, no extension) for a video based on this storyboard. Max 5 words. Example: 'funny-cat-video'. Storyboard: "${storyboard.substring(0, 500)}..."`;
+
+    const apiCall = () => ai.models.generateContent({
+        model: "gemini-2.0-flash-exp", // Fast model for simple task
+        contents: [{ parts: [{ text: prompt }] }],
+    });
+
+    try {
+        const response = await makeApiCallWithRetry<GenerateContentResponse>(apiCall, 1000);
+        const text = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        return text ? text.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase() : 'video';
+    } catch (e) {
+        console.error("Failed to generate filename, using default.", e);
+        return `video-${Date.now()}`;
+    }
+}
+
 export async function createSceneAssets(description: string, id: number, allDescriptions: string[]): Promise<Scene> {
     try {
-        const subtitle = description; // The narration is the scene description itself.
+        // Clean the description for narration/subtitle
+        // Remove "Cena X:", "Scene X:", "CENA X -" etc.
+        const subtitle = description.replace(/^(cena|scene)\s*\d+[\s:.-]*/i, '').trim();
 
         // Generate assets sequentially to respect API rate limits.
         // The functions now have built-in retries.
