@@ -1,0 +1,15 @@
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/bin/Debug/net10.0/HelloWorld
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/bin/Debug/net10.0/HelloWorld.deps.json
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/bin/Debug/net10.0/HelloWorld.runtimeconfig.json
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/bin/Debug/net10.0/HelloWorld.dll
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/bin/Debug/net10.0/HelloWorld.pdb
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/HelloWorld.GeneratedMSBuildEditorConfig.editorconfig
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/HelloWorld.AssemblyInfoInputs.cache
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/HelloWorld.AssemblyInfo.cs
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/HelloWorld.csproj.CoreCompileInputs.cache
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/HelloWorld.sourcelink.json
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/HelloWorld.dll
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/refint/HelloWorld.dll
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/HelloWorld.pdb
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/HelloWorld.genruntimeconfig.cache
+/Users/rods/git/pocs/aprendizadoCSharp/HelloWorld/obj/Debug/net10.0/ref/HelloWorld.dll
