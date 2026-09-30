@@ -274,6 +274,7 @@ main.drawer-panel #fab{opacity:0;visibility:hidden}
     <div class="grp only3d" id="toggles3d">
       <button class="btn chip on" data-t="furn" data-en="Furniture" data-pt="Móveis">家具</button>
       <button class="btn chip on" data-t="labels" data-en="Labels" data-pt="Nomes">房间名</button>
+      <button class="btn chip on" data-t="lamps" title="显示 / 隐藏吸顶灯" data-en-title="Show / hide ceiling lights" data-pt-title="Mostrar / ocultar as luminárias do teto" data-en="Lights" data-pt="Luminárias">灯具</button>
       <button class="btn chip" data-t="night" data-en="Night" data-pt="Noite">夜景</button>
     </div>
     <div class="grp only3d"><label class="range"><span data-en="Sun" data-pt="Sol">日照</span> <input type="range" id="sun" min="7" max="18" step=".25" value="10" style="width:84px"><span id="sunT">10:00</span></label></div>
@@ -1601,7 +1602,7 @@ const stage = $('#stage'), host = $('#view3d');
 const OX = 8800, OY = 40000, H = 2.8, FOV = 45;      // 房屋中心放在世界原点，层高 2.8 m
 const wx = x => (x - OX) / 1000, wz = y => (y - OY) / 1000, M = v => v / 1000;
 const SW = () => stage.clientWidth, SH = () => stage.clientHeight;
-const opt = {cut:2.8, furn:true, labels:true, night:false, hour:10, mode:'orbit'};
+const opt = {cut:2.8, furn:true, labels:true, lamps:true, night:false, hour:10, mode:'orbit'};
 
 let inited = false, active = false, raf = 0, anim = null, fly = null;
 let renderer, labelRenderer, scene, camera, orbit, walkCtl, hemi, sun, ground, glassMat, wallMat, capMat, frameMat;
@@ -2457,7 +2458,7 @@ function buildArch(){
     const ceil = new THREE.Mesh(cg, mat('#fbfaf7', {roughness:1})); ceil.position.y = H; ceil.visible = top >= H; if (!r.outdoor) archUp.add(ceil);
     if (r.at && !r.outdoor){
       const lamp = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .02, 32), new THREE.MeshStandardMaterial({color:'#fff', emissive:'#fff2d6', emissiveIntensity:.3}));
-      lamp.position.set(wx(r.at[0]), H - .012, wz(r.at[1])); lamp.visible = top >= H; lampG.add(lamp);
+      lamp.position.set(wx(r.at[0]), H - .012, wz(r.at[1])); lamp.visible = top >= H && opt.lamps; lampG.add(lamp);
       const pl = new THREE.PointLight(0xffd9a8, 0, 7, 1.6); pl.position.set(wx(r.at[0]), H - .25, wz(r.at[1])); lampG.add(pl);
     }
   });
@@ -2798,6 +2799,7 @@ function bindUI(){
     const k = b.dataset.t; opt[k] = !opt[k]; b.classList.toggle('on', opt[k]);
     if (k === 'furn'){ furnG.visible = opt.furn; if (!opt.furn && ui.sel?.kind === 'furn') window.select(null); }
     if (k === 'labels') showLabels(opt.labels && opt.mode === 'orbit' && !anim);
+    if (k === 'lamps') lampG.children.forEach(o => { if (o.isMesh) o.visible = opt.lamps && opt.cut >= H; });
     if (k === 'night') applyLight();
   });
   $('#sun').oninput = e => { opt.hour = +e.target.value; applyLight(); };
