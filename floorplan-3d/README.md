@@ -8,6 +8,14 @@ Fork de [wy51ai/floorplan-3d](https://github.com/wy51ai/floorplan-3d) com a inte
 - Como usar: basta abrir o `index.html` no navegador (o 3D precisa de internet para baixar o three.js).
 - Observação: os preços de piso continuam em ¥ (yuan), como no original.
 
+### Planta da casa Rodrigo e Família
+
+- A planta genérica original foi substituída pela da casa, extraída do PDF do AutoCAD (escala 1:100): paredes, portas, janelas e cômodos com as medidas do projeto.
+- O terreno (19,04 × 20,90 × 55,87 m) aparece como gramado, com calçada na frente, garagem e piso externo.
+- Nova categoria **Jardim** na biblioteca: árvores, árvore frutífera, palmeira, arbustos, cerca viva, canteiro de flores, pisante de pedra e banco. Arraste para o gramado, no 2D ou no 3D.
+- O passeio 3D começa na garagem, em frente à porta de entrada.
+- Pontos que o PDF não informa e foram estimados: altura de janelas e portas, e a abertura de 5 m da sala para o quintal, tratada como porta de vidro de correr.
+
 ---
 
 # 户型装修设计

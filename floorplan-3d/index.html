@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#fffdf9">
-<title>户型装修设计</title>
+<title>Casa Rodrigo e Família</title>
 <style>
 :root{
   --bg:#f3efe7; --paper:#f7f4ee; --panel:#fffdf9; --line:#e3dccf; --ink:#2b2824; --muted:#8a8174;
@@ -227,7 +227,7 @@ main.drawer-panel #fab{opacity:0;visibility:hidden}
       <button class="btn chip" id="tgLib" data-en="◧ Library" data-pt="◧ Biblioteca">◧ 家具库</button>
       <button class="btn chip" id="tgPanel" data-en="Properties ◨" data-pt="Propriedades ◨">属性 ◨</button>
     </div>
-    <div class="brand"><b data-en="3BR 2LR 2BA · Interior Design" data-pt="3 quartos · 2 salas · 2 banheiros · Projeto de Interiores">三室两厅两卫 · 装修设计</b><span id="subtitle">原始户型 1:60 · 尺寸单位 mm</span></div>
+    <div class="brand"><b data-en="Rodrigo &amp; Family House · 3 bedrooms" data-pt="Casa Rodrigo e Família · 3 quartos">Rodrigo 家 · 三室</b><span id="subtitle">原始户型 1:100 · 尺寸单位 mm</span></div>
     <div class="grp seg" id="viewSeg" title="切换 2D / 3D (T)" data-en-title="Switch 2D / 3D (T)" data-pt-title="Alternar 2D / 3D (T)">
       <span class="pill"></span>
       <button class="btn" data-view="2d" data-en="2D Plan" data-pt="Planta 2D">2D 平面</button>
@@ -242,8 +242,8 @@ main.drawer-panel #fab{opacity:0;visibility:hidden}
       <button class="btn" id="zoomOut" title="缩小" data-en-title="Zoom out" data-pt-title="Diminuir zoom">−</button>
       <button class="btn" id="zoomIn" title="放大" data-en-title="Zoom in" data-pt-title="Aumentar zoom">＋</button>
       <button class="btn" id="fit" title="适应窗口 (F)" data-en-title="Fit to window (F)" data-pt-title="Ajustar à janela (F)" data-en="Fit" data-pt="Ajustar">适应</button>
-      <button class="btn" id="s60" title="按 1:60 显示（与原图同比例）" data-en-title="Show at 1:60 (same scale as the original plan)" data-pt-title="Exibir em 1:60 (mesma escala da planta original)">1:60</button>
-      <button class="btn" id="s100" title="按 1:100 显示" data-en-title="Show at 1:100" data-pt-title="Exibir em 1:100">1:100</button>
+      <button class="btn" id="s60" title="按 1:60 显示" data-en-title="Show at 1:60" data-pt-title="Exibir em 1:60">1:60</button>
+      <button class="btn" id="s100" title="按 1:100 显示（与原图同比例）" data-en-title="Show at 1:100 (same scale as the original plan)" data-pt-title="Exibir em 1:100 (mesma escala da planta original)">1:100</button>
     </div>
     <div class="grp only3d" id="modes3d">
       <button class="btn on" data-mode="orbit" data-en="Orbit" data-pt="Aérea">鸟瞰</button>
@@ -363,6 +363,10 @@ const NAMES_EN = {
   '洗衣机':'Washer', '洗衣池':'Laundry Sink', '电热水器':'Water Heater', '储物柜':'Storage Cabinet', '65 寸电视':'65" TV',
   '55 寸电视':'55" TV', '对开门冰箱':'French-door Fridge', '柜机空调':'Floor AC', '挂机空调':'Wall AC', '洗碗机':'Dishwasher',
   '蒸烤箱高柜':'Oven Tower', '烘干机':'Dryer', '空气净化器':'Air Purifier', '长书桌':'Long Desk', '办公椅':'Office Chair',
+  '车库':'Garage', '入口铺装':'Front Paving', '厨房 / 客厅':'Kitchen / Living', '洗衣房':'Laundry', '储藏室':'Storage', '门厅':'Entry Hall',
+  '走廊':'Corridor', '卧室 1':'Bedroom 1', '卧室 2':'Bedroom 2', '卫生间':'Bathroom', '套房':'Suite',
+  '水泥地面':'Concrete', '透水砖':'Pavers', '草坪':'Lawn', '花园':'Garden', '大树':'Large Tree', '树':'Tree', '棕榈树':'Palm Tree',
+  '果树':'Fruit Tree', '灌木':'Shrub', '小灌木':'Small Shrub', '绿篱':'Hedge', '花坛':'Flower Bed', '踏步石':'Stepping Stone', '花园长椅':'Garden Bench',
   '大书架':'Large Bookshelf', '立式钢琴':'Upright Piano', '跑步机':'Treadmill', '阅读椅':'Reading Chair', '茶桌':'Tea Table', '休闲椅':'Lounge Chair',
 };
 const NAMES_PT = {
@@ -383,6 +387,10 @@ const NAMES_PT = {
   '洗衣机':'Máquina de Lavar', '洗衣池':'Tanque', '电热水器':'Aquecedor Elétrico', '储物柜':'Armário', '65 寸电视':'TV 65"',
   '55 寸电视':'TV 55"', '对开门冰箱':'Geladeira Side by Side', '柜机空调':'Ar-condicionado de Piso', '挂机空调':'Ar-condicionado Split', '洗碗机':'Lava-louças',
   '蒸烤箱高柜':'Torre de Fornos', '烘干机':'Secadora', '空气净化器':'Purificador de Ar', '长书桌':'Escrivaninha Longa', '办公椅':'Cadeira de Escritório',
+  '车库':'Garagem', '入口铺装':'Entrada (piso externo)', '厨房 / 客厅':'Cozinha / Sala', '洗衣房':'Serviço', '储藏室':'Depósito', '门厅':'Hall',
+  '走廊':'Circulação', '卧室 1':'Quarto 1', '卧室 2':'Quarto 2', '卫生间':'Banheiro', '套房':'Suíte',
+  '水泥地面':'Cimentado', '透水砖':'Piso intertravado', '草坪':'Grama', '花园':'Jardim', '大树':'Árvore Grande', '树':'Árvore', '棕榈树':'Palmeira',
+  '果树':'Árvore Frutífera', '灌木':'Arbusto', '小灌木':'Arbusto Pequeno', '绿篱':'Cerca Viva', '花坛':'Canteiro de Flores', '踏步石':'Pisante de Pedra', '花园长椅':'Banco de Jardim',
   '大书架':'Estante Grande', '立式钢琴':'Piano Vertical', '跑步机':'Esteira', '阅读椅':'Poltrona de Leitura', '茶桌':'Mesa de Chá', '休闲椅':'Cadeira de Lazer',
 };
 const nm = s => LANG === 'en' ? (NAMES_EN[s] ?? s) : LANG === 'pt' ? (NAMES_PT[s] ?? NAMES_EN[s] ?? s) : s;
@@ -390,7 +398,7 @@ const nm = s => LANG === 'en' ? (NAMES_EN[s] ?? s) : LANG === 'pt' ? (NAMES_PT[s
 const nextLang = () => LANGS[(LANGS.indexOf(LANG) + 1) % LANGS.length];
 function applyStaticLang(){
   document.documentElement.lang = tr('zh-CN', 'en', 'pt-BR');
-  document.title = tr('户型装修设计', 'Floor Plan Designer', 'Projeto de Planta Baixa');
+  document.title = tr('Rodrigo 家 · 户型设计', 'Rodrigo & Family House', 'Casa Rodrigo e Família');
   document.querySelectorAll('[data-en]').forEach(el => { el.dataset.zh ??= el.textContent; el.textContent = tr(el.dataset.zh, el.dataset.en, el.dataset.pt); });
   document.querySelectorAll('[data-en-title]').forEach(el => { el.dataset.zhTitle ??= el.title; el.title = tr(el.dataset.zhTitle, el.dataset.enTitle, el.dataset.ptTitle); });
   // 按钮显示下一个语言
@@ -398,78 +406,70 @@ function applyStaticLang(){
 }
 
 /* ============================================================
- *  户型数据（单位 mm，原点 = 左侧外墙内皮 / 顶部外墙内皮）
- *  所有数值均按原始户型图尺寸标注推算：
- *  上：1580/240/2760/240/1540/240/3670 = 10270
- *  下：2180/240/2160/240/5450/240/1340 = 11850
- *  左：3370/1580/240/2770/240/2360 = 10560
- *  右：3370/240/2760/240/3950 = 10560
+ *  Casa Rodrigo e Família —— 数据取自 AutoCAD 导出的 PDF（比例 1:100，1 pt = 35.278 mm）
+ *  单位 mm；原点 = 地块后侧左角，x 向右，y 向前（临街一侧）
+ *  地块：后侧 19,04 m · 前侧 20,90 m · 左侧 55,87 m · 右侧 55,90 m（右侧为斜边）
  * ============================================================ */
+// 地块（草坪）与人行道
+const LOT = [[0,0],[19037,0],[20900,55870],[0,55870]];
+const SIDEWALK = [-1500,55870,22400,58770];
 // 墙体：[x0,y0,x1,y1,类型]  b=承重(黑) e=外墙 n=可拆非承重 low=矮墙
 const WALLS = [
-  // 顶部外墙
-  [1580,-240,2120,0,'b'],[1580,0,1820,300,'b'],[2120,-240,4580,0,'e'],[4580,-240,5140,0,'e'],
-  [5760,-240,6050,0,'e'],[6050,-240,6600,0,'b'],[6360,0,6600,300,'b'],[6600,-240,9960,0,'e'],
-  [9960,-240,10510,0,'b'],[10270,0,10510,300,'b'],
-  // 右侧外墙
-  [10270,300,10510,800,'e'],[10270,2600,10510,3090,'e'],[10270,3090,10510,4260,'b'],
-  [10270,5740,10510,6370,'b'],[9960,6370,10510,6610,'b'],[10270,6610,10510,7400,'b'],
-  [10270,9770,10510,10560,'b'],[9960,10560,10510,10800,'b'],
-  // 底部 / 阳台
-  [4580,10560,9960,10800,'e'],[10510,10560,12090,10800,'e'],[11850,9960,12090,10560,'e'],
-  // 客厅左墙（入户门两侧）
-  [4580,9200,4820,10560,'e'],[4580,7960,4820,8310,'e'],
-  // 餐厅 / 厨房外墙
-  [3620,7960,4580,8200,'e'],[2180,7960,3620,8200,'b'],[2180,7590,2420,7960,'b'],[2180,7400,2420,7590,'n'],
-  [-240,7960,2180,8200,'e'],[-240,3610,0,7960,'e'],
-  // 洗衣阳台
-  [0,4950,200,5190,'n'],[200,4950,1275,5190,'low'],[1580,3370,2420,3825,'b'],
-  [2180,4430,2420,5796,'n'],[2090,4950,2180,5190,'n'],
-  // 客卫
-  [2420,4950,4580,5190,'n'],[4580,3280,4820,4075,'n'],[4580,4860,4820,5190,'n'],[2420,3370,4580,3610,'n'],
-  // 小孩房 / 主卫
-  [4580,0,4820,2400,'n'],[4820,2080,6360,2320,'n'],[6360,300,6600,1198,'n'],[6360,1983,6600,2400,'n'],
-  // 过道 / 主卧 / 子女房
-  [6083,3370,6600,3707,'b'],[6360,3280,6600,3370,'n'],[6600,3370,9960,3610,'n'],[9960,3370,10270,3610,'b'],
-  [6083,4600,6323,6610,'n'],[6323,6370,9960,6610,'n'],
+  // 卧室区外墙
+  [14296,32169,17598,32317,'e'],[17446,32317,17598,33168,'e'],[17446,34366,17598,35717,'e'],[17446,36318,17598,37668,'e'],
+  [17446,38866,17598,40217,'e'],[17446,40818,17598,42168,'e'],[17446,43366,17598,44365,'e'],[13297,44217,16849,44365,'e'],
+  [13149,33117,13297,35865,'e'],[13297,33117,14296,33266,'e'],[13149,37465,13297,37715,'e'],
+  // 卧室区内墙
+  [14296,32317,14448,34282,'n'],[14296,35154,14448,35399,'n'],[14448,35217,17446,35365,'n'],[14296,36174,14448,36851,'n'],
+  [14448,36665,17446,36817,'n'],[14296,37723,14448,40331,'n'],[13297,39717,13360,39865,'n'],[14237,39717,14296,39865,'n'],
+  [14448,39717,17446,39865,'n'],[14296,41106,14448,41317,'n'],[14448,41165,17446,41317,'n'],
+  // 客厅 / 厨房 / 服务区
+  [2650,37567,2798,41868,'e'],[2798,37567,3196,37715,'e'],[4199,37567,6397,37715,'e'],[11396,37567,13149,37715,'e'],
+  [4398,38506,4547,41868,'n'],[2798,39565,4398,39717,'n'],[13149,38693,13297,44365,'e'],
+  [1300,41715,2650,41868,'e'],[2798,41715,3522,41868,'e'],[4547,41715,7146,41868,'e'],[9796,41715,11549,41868,'e'],
+  [6998,41868,7146,42266,'e'],[9796,41868,9948,42266,'e'],[11396,41868,11549,43417,'e'],[11549,43265,11811,43417,'e'],
+  [13085,43265,13149,43417,'e'],
+  // 车库柱
+  [0,41715,148,42719,'e'],[0,46867,148,47866,'e'],[13149,47367,13297,48366,'e'],
 ];
-// 窗
+// 窗：[x0,y0,x1,y1,窗台高,窗顶高]（m）
 const WINS = [
-  [5140,-240,5760,0],[1580,300,1820,3370],[-240,3370,1580,3610],[2180,3825,2420,4430],
-  [10510,6370,12090,6610],[11850,6610,12090,9960],
-  // 飘窗（主卧 / 子女房）
-  [10510,660,11130,760],[11030,760,11130,2650],[10510,2650,11130,2750],
-  [10510,4110,11130,4210],[11030,4210,11130,5785],[10510,5785,11130,5885],
+  [17446,33168,17598,34366,1,2.2],[17446,37668,17598,38866,1,2.2],[17446,42168,17598,43366,1,2.2],   // 卧室
+  [17446,35717,17598,36318,1.6,2.2],[17446,40217,17598,40818,1.6,2.2],                                 // 卫生间
+  [16849,44217,17446,44365,1.6,2.2],[3196,37567,4199,37715,1.1,2.2],                                  // 套房 / 洗衣房
+  [13149,35865,13297,37465,1,2.2],[7146,42117,9796,42266,.9,2.2],                                     // 走廊 / 客厅
 ];
 // 平开门：洞口、铰点、关闭方向、开启方向、门宽
 const DOORS = [
-  {name:'小孩房门',rect:[4580,2400,4820,3280],h:[4580,3280],c:[0,-1],o:[-1,0],len:880},
-  {name:'主卧门',rect:[6360,2400,6600,3280],h:[6600,3280],c:[0,-1],o:[1,0],len:880},
-  {name:'主卫门',rect:[6360,1198,6600,1983],h:[6360,1198],c:[0,1],o:[-1,0],len:785},
-  {name:'客卫门',rect:[4580,4075,4820,4860],h:[4580,4860],c:[0,-1],o:[-1,0],len:785},
-  {name:'子女房门',rect:[6083,3707,6323,4600],h:[6323,4600],c:[0,-1],o:[1,0],len:893},
-  {name:'入户门',rect:[4580,8310,4820,9200],h:[4820,9200],c:[0,-1],o:[1,0],len:890,entry:true},
+  {name:'卧室 1',rect:[14296,34282,14448,35154],h:[14448,35135],c:[0,-1],o:[1,0],len:800},
+  {name:'卧室 2',rect:[14296,36851,14448,37723],h:[14448,36868],c:[0,1],o:[1,0],len:800},
+  {name:'卫生间',rect:[14296,35399,14448,36174],h:[14448,35418],c:[0,1],o:[1,0],len:700},
+  {name:'主卫浴',rect:[14296,40331,14448,41106],h:[14448,41087],c:[0,-1],o:[1,0],len:700},
+  {name:'套房',rect:[13360,39717,14237,39865],h:[13380,39865],c:[1,0],o:[0,1],len:800},
+  {name:'洗衣房',rect:[4398,37715,4547,38506],h:[4398,37745],c:[0,1],o:[-1,0],len:700},
+  {name:'入户门',rect:[11811,43265,13085,43417],h:[13085,43265],c:[-1,0],o:[0,-1],len:1200,entry:true},
 ];
-// 推拉门
+// 推拉门：h = 门高（m）
 const SLIDES = [
-  {rect:[10270,7400,10510,9770],v:true},
-  {rect:[1275,4950,2090,5190],v:false},
+  {rect:[6397,37567,11396,37715],v:false,h:2.2},   // 客厅通往后院的玻璃推拉门
+  {rect:[13149,37715,13297,38693],v:true,h:2.1},   // 客厅 ↔ 走廊
+  {rect:[3522,41715,4398,41868],v:false,h:2.1},    // 储藏室
 ];
 const R = (x0,y0,x1,y1) => [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+// counted:false = 不计入使用面积；outdoor = 室外（无天花 / 吊灯）
 const ROOMS = [
-  {id:'master', name:'主卧室', poly:R(6600,0,10270,3370), mat:'wood', at:[8435,2420]},
-  {id:'mbath', name:'主卫浴', poly:R(4820,0,6360,2080), mat:'antislip', at:[5980,1780]},
-  {id:'kid', name:'小孩房', poly:R(1820,0,4580,3370), mat:'wood', at:[3380,2330]},
-  {id:'gbath', name:'客卫浴', poly:R(2420,3610,4580,4950), mat:'antislip', at:[3760,4620]},
-  {id:'laundry', name:'洗衣阳台', poly:R(0,3610,2180,4950), mat:'antislip', at:[1250,4330]},
-  {id:'child', name:'子女房', poly:R(6323,3610,10270,6370), mat:'wood', at:[8850,4850]},
-  {id:'kitchen', name:'厨房', poly:R(0,5190,2180,7960), mat:'tile600', at:[1300,6500]},
-  {id:'dining', name:'餐厅', poly:[[2420,5190],[4820,5190],[4820,7960],[2420,7960],[2420,7400],[2180,7400],[2180,5796],[2420,5796]], mat:'tile800', at:[3900,5520]},
-  {id:'hall', name:'过道', poly:[[4820,2320],[6360,2320],[6360,3370],[6083,3370],[6083,6610],[4820,6610]], mat:'tile800', at:[5450,4450]},
-  {id:'living', name:'客厅', poly:R(4820,6610,10270,10560), mat:'tile800', at:[7600,7560]},
-  {id:'balcony', name:'休闲阳台', poly:R(10510,6610,11850,10560), mat:'walnut', at:[11180,9450]},
-  {id:'bay1', name:'主卧飘窗', poly:[[10270,800],[10510,800],[10510,760],[11030,760],[11030,2650],[10510,2650],[10510,2600],[10270,2600]], mat:'marble', counted:false},
-  {id:'bay2', name:'子女房飘窗', poly:[[10270,4260],[10510,4260],[10510,4210],[11030,4210],[11030,5785],[10510,5785],[10510,5740],[10270,5740]], mat:'marble', counted:false},
+  {id:'garage', name:'车库', poly:[[148,41868],[6998,41868],[6998,42266],[9948,42266],[9948,41868],[11396,41868],[11396,43417],[13149,43417],[13149,44365],[13297,44365],[13297,47866],[148,47866]], mat:'concrete', at:[5500,45300], counted:false, outdoor:true},
+  {id:'front', name:'入口铺装', poly:R(0,47866,13297,55870), mat:'paver', at:[6650,52000], counted:false, outdoor:true},
+  {id:'living', name:'厨房 / 客厅', poly:[[4547,37715],[13149,37715],[13149,41715],[9796,41715],[9796,42117],[7146,42117],[7146,41715],[4547,41715]], mat:'tile800', at:[8900,38500]},
+  {id:'laundry', name:'洗衣房', poly:R(2798,37715,4398,39565), mat:'antislip', at:[3600,38900]},
+  {id:'storage', name:'储藏室', poly:R(2798,39717,4398,41715), mat:'tile600', at:[3600,40750]},
+  {id:'hall', name:'门厅', poly:R(11549,41715,13149,43265), mat:'tile800', at:[12350,42600]},
+  {id:'corridor', name:'走廊', poly:R(13297,33266,14296,39717), mat:'tile800'},
+  {id:'room1', name:'卧室 1', poly:R(14448,32317,17446,35217), mat:'wood', at:[15950,34500]},
+  {id:'bath1', name:'卫生间', poly:R(14448,35365,17446,36665), mat:'antislip', at:[15500,35900]},
+  {id:'room2', name:'卧室 2', poly:R(14448,36817,17446,39717), mat:'wood', at:[15950,37450]},
+  {id:'bath2', name:'主卫浴', poly:R(14448,39865,17446,41165), mat:'antislip', at:[15500,40700]},
+  {id:'suite', name:'套房', poly:[[13297,39865],[14296,39865],[14296,41317],[17446,41317],[17446,44217],[13297,44217]], mat:'wood', at:[15900,41950]},
 ];
 const MATS = {
   wood:    {name:'橡木地板', price:320, sw:'#d8b88a'},
@@ -480,6 +480,9 @@ const MATS = {
   antislip:{name:'300 防滑砖', price:140, sw:'#d3d8d4'},
   terrazzo:{name:'水磨石', price:280, sw:'#e6dfd3'},
   carpet:  {name:'满铺地毯', price:200, sw:'#c9c3d3'},
+  concrete:{name:'水泥地面', price:60, sw:'#c4c2bd'},
+  paver:   {name:'透水砖', price:90, sw:'#b9a996'},
+  grass:   {name:'草坪', price:25, sw:'#8fb872'},
 };
 // 家具库：[类型, 名称, 宽, 深, 颜色]
 const LIB = [
@@ -510,6 +513,11 @@ const LIB = [
   {cat:'书房 · 休闲', items:[
     ['desk','长书桌',1600,700,'#d8c2a2'],['officechair','办公椅',620,620,'#4a4f55'],['bookshelf','大书架',1600,350,'#e2cfb4'],
     ['piano','立式钢琴',1500,600,'#1f1d1b'],['treadmill','跑步机',800,1800,'#3a3a3c'],['armchair','阅读椅',750,800,'#c9a98a']]},
+  {cat:'花园', items:[
+    ['tree','大树',4000,4000,'#6f9f55'],['tree','树',2500,2500,'#7aa95e'],['palm','棕榈树',2400,2400,'#6b9b4f'],
+    ['fruittree','果树',3000,3000,'#6f9f55'],['shrub','灌木',1000,1000,'#79a862'],['shrub','小灌木',600,600,'#86b36c'],
+    ['hedge','绿篱',3000,600,'#5f8f4e'],['flowerbed','花坛',2000,800,'#8a6a4a'],['plant','绿植',500,500,'#a9c39b'],
+    ['plant','大绿植',700,700,'#9dbb8c'],['stepstone','踏步石',500,500,'#bdb6aa'],['gardenbench','花园长椅',1500,600,'#9b7250']]},
 ];
 const typeColor = t => { for (const c of LIB) for (const i of c.items) if (i[0]===t) return i[4]; return '#eee'; };
 
@@ -518,36 +526,31 @@ const uid = () => 'f' + Date.now().toString(36) + (_n++);
 const F = (type,name,cx,cy,w,d,rot=0,color) => ({id:uid(),type,name,cx,cy,w,d,rot,color:color||typeColor(type)});
 
 function defaultFurniture(){ return [
-  // 主卧
-  F('bed','双人床',8300,1000,1800,2000,0,'#c9d6df'), F('nightstand','床头柜',7150,220,450,400), F('nightstand','床头柜',9450,220,450,400),
-  F('wardrobe','衣柜',8800,3070,2400,600,180), F('baycushion','飘窗垫',10770,1705,520,1800),
-  // 主卫
-  F('shower','淋浴房',5270,450,900,900), F('toilet','马桶',5170,1500,400,700,270), F('vanity','浴室柜',6110,700,800,500,90),
-  // 小孩房
-  F('bed','单人床',2420,1000,1200,2000,0,'#e8d5b5'), F('desk','书桌',2120,2700,1200,600,270), F('chair','椅子',2700,2700,450,480,90),
-  F('wardrobe','衣柜',4280,1000,1600,600,90), F('bookshelf','书架',3500,150,800,300),
-  // 客卫
-  F('shower','淋浴区',2870,4280,900,1340), F('toilet','马桶',3560,3960,400,700), F('vanity','浴室柜',4150,3850,700,480),
-  // 洗衣阳台
-  F('washer','洗衣机',300,3960,600,600,270), F('vanity','洗衣池',250,4600,600,500,270),
-  // 厨房
-  F('counter','橱柜台面',300,6575,2770,600,270), F('counter','橱柜台面',1390,7660,1580,600,180),
-  F('stove','燃气灶',300,6200,750,450,270), F('ksink','水槽',1400,7680,800,450,180),
-  // 餐厅
-  F('fridge','冰箱',2770,5540,700,700), F('table','餐桌',3600,6650,1400,800,90),
-  F('chair','餐椅',2940,6320,450,480,270), F('chair','餐椅',2940,6980,450,480,270),
-  F('chair','餐椅',4260,6320,450,480,90), F('chair','餐椅',4260,6980,450,480,90),
-  F('cabinet','餐边柜',3500,7785,1600,350,180),
-  // 客厅
-  F('rug','地毯',7600,8950,2600,1800), F('tvstand','电视柜',7600,6810,2400,400), F('sofa','三人沙发',7600,10110,3000,900,180),
-  F('coffeetable','茶几',7600,8900,1300,650), F('armchair','单人沙发',9500,8900,850,850,90),
-  F('shoecab','鞋柜',4995,9900,1000,350,270), F('plant','绿植',9950,10250,500,500), F('plant','绿植',5250,7050,500,500),
-  // 子女房
-  F('bed','双人床',7323,5500,1500,2000,270,'#d8c7dc'), F('wardrobe','衣柜',8500,3910,2000,600),
-  F('desk','书桌',9500,6070,1200,600,180), F('chair','椅子',9500,5480,450,480), F('baycushion','飘窗垫',10770,4997,520,1575),
-  // 休闲阳台
-  F('roundtable','茶桌',11180,8200,600,600), F('armchair','休闲椅',11180,7520,750,750,0,'#d6b99a'),
-  F('armchair','休闲椅',11180,8880,750,750,180,'#d6b99a'), F('plant','绿植',11550,10250,500,500),
+  // 厨房 / 客厅（按 PDF 中的布置）
+  F('fridge','冰箱',4897,38916,700,700,270), F('counter','橱柜台面',4847,40490,2449,600,270), F('stove','燃气灶',4847,40600,750,450,270),
+  F('counter','橱柜台面',5749,41416,1202,598,180), F('ksink','水槽',5750,41450,800,450,180), F('island','岛台',6700,40165,3099,699,90),
+  F('table','餐桌',8496,39717,2000,1000,90),
+  F('chair','餐椅',7750,39050,450,480,270), F('chair','餐椅',7750,39720,450,480,270), F('chair','餐椅',7750,40390,450,480,270),
+  F('chair','餐椅',9240,39050,450,480,90), F('chair','餐椅',9240,39720,450,480,90), F('chair','餐椅',9240,40390,450,480,90),
+  F('chair','餐椅',8496,38960,450,480,0), F('chair','餐椅',8496,40475,450,480,180),
+  F('sofa','三人沙发',10470,40250,2600,950,270), F('tvstand','电视柜',12949,40356,2400,400,90), F('rug','地毯',11300,40250,1800,2400),
+  // 洗衣房
+  F('vanity','洗衣池',3010,38000,530,420,270), F('washer','洗衣机',3100,38600,600,600,270),
+  // 卫生间
+  F('vanity','浴室柜',15050,36465,1000,400,180), F('toilet','马桶',15960,36315,400,700,180), F('shower','淋浴区',16897,36015,1097,1300),
+  F('vanity','浴室柜',15050,40065,1000,400), F('toilet','马桶',15960,40215,400,700), F('shower','淋浴区',16897,40515,1097,1300),
+  // 卧室 1 / 2
+  F('bed','双人床',16347,33268,1400,1900,0,'#c9d6df'), F('wardrobe','衣柜',14749,33216,1799,602,270), F('desk','书桌',16546,35016,1800,400,180),
+  F('bed','双人床',16347,38767,1400,1900,180,'#d8c7dc'), F('wardrobe','衣柜',14749,38818,1799,602,270), F('desk','书桌',16546,37016,1800,400),
+  // 套房
+  F('bed','双人床 1.8m',15748,43216,1998,2002,180,'#c9d6df'), F('nightstand','床头柜',14500,43990,450,400,180), F('nightstand','床头柜',16996,43990,450,400,180),
+  F('wardrobe','衣柜',13598,43216,2002,601,270), F('cabinet','储物柜',16097,41516,2697,398),
+  // 花园
+  F('tree','大树',4500,6000,4000,4000), F('tree','大树',14000,8000,4000,4000,0,'#6a9a52'), F('fruittree','果树',9000,14000,3000,3000),
+  F('palm','棕榈树',2500,30000,2400,2400), F('palm','棕榈树',18000,48000,2400,2400),
+  F('shrub','灌木',1500,36500,1000,1000), F('shrub','灌木',1500,39500,1000,1000), F('shrub','灌木',18400,33500,1000,1000),
+  F('flowerbed','花坛',6500,36300,2000,800), F('flowerbed','花坛',11000,36300,2000,800),
+  F('hedge','绿篱',16000,54800,3000,600), F('gardenbench','花园长椅',9000,17800,1500,600,180),
 ];}
 
 function defaultState(){
@@ -555,7 +558,7 @@ function defaultState(){
   return {furniture:defaultFurniture(), rooms, demolished:[], measures:[]};
 }
 
-const STORE = 'huxing-design-v1';
+const STORE = 'casa-rodrigo-v1';
 function load(){
   try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && Array.isArray(s.furniture)) return fixState(s); } catch(e) {}
   return null;
@@ -571,7 +574,7 @@ const PX_MM = 25.4 / 96;                       // 1 CSS px = 0.2646 mm
 const COARSE = matchMedia('(pointer:coarse)').matches;   // iPad / 手机等触屏为主的设备
 const TAP = COARSE ? 9 : 4;                    // 手指按下后移动超过该像素才算拖动
 const narrow = () => matchMedia('(max-width:1100px)').matches;
-const BOUNDS = {x:-1850, y:-1750, w:15600, h:14100};
+const BOUNDS = {x:-2600, y:-2200, w:26500, h:62800};
 const $ = s => document.querySelector(s);
 const svg = $('#plan');
 
@@ -603,6 +606,7 @@ function snapRects(){ return WALLS.filter((w,i) => !state.demolished.includes('w
 
 /* ======================= 颜色 / 材质图案 ======================= */
 function hex2rgb(h){ h = h.replace('#',''); if (h.length===3) h = h.split('').map(c=>c+c).join(''); const n = parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function rng2(seed){ return () => (seed = (seed*16807) % 2147483647) / 2147483647; }
 function shade(h,k){ const f = v => Math.max(0,Math.min(255,Math.round(k>1 ? v+(255-v)*(k-1)*2 : v*k))); return '#'+hex2rgb(h).map(v=>f(v).toString(16).padStart(2,'0')).join(''); }
 
 function buildDefs(){
@@ -624,6 +628,14 @@ function buildDefs(){
       <circle cx="420" cy="400" r="18" fill="#a88f76"/><circle cx="90" cy="440" r="12" fill="#8fa3a0"/><circle cx="440" cy="40" r="10" fill="#b9a58c"/></pattern>
     <pattern id="m-carpet" patternUnits="userSpaceOnUse" width="120" height="120">
       <rect width="120" height="120" fill="#c9c3d3"/><circle cx="30" cy="30" r="8" fill="#bab3c6"/><circle cx="90" cy="90" r="8" fill="#bab3c6"/></pattern>
+    <pattern id="m-concrete" patternUnits="userSpaceOnUse" width="3000" height="3000">
+      <rect width="3000" height="3000" fill="#cfccc6"/><path d="M0 0H3000M0 0V3000" stroke="#b3afa7" stroke-width="14"/>
+      <circle cx="700" cy="900" r="14" fill="#bdb9b2"/><circle cx="2100" cy="400" r="10" fill="#bdb9b2"/><circle cx="1500" cy="2300" r="16" fill="#bdb9b2"/></pattern>
+    <pattern id="m-paver" patternUnits="userSpaceOnUse" width="400" height="400">
+      <rect width="400" height="400" fill="#bfae99"/><path d="M0 0H400M0 200H400M0 0V200M200 200V400" stroke="#9c8a74" stroke-width="12"/></pattern>
+    <pattern id="m-grass" patternUnits="userSpaceOnUse" width="900" height="900">
+      <rect width="900" height="900" fill="#9cc47f"/>
+      <path d="M80 120l20-60 15 55M420 90l18-55 16 52M700 260l20-60 15 55M230 430l18-55 16 52M600 560l20-60 15 55M120 720l18-55 16 52M820 780l18-55 16 52M470 840l20-60 15 55" stroke="#7fae63" stroke-width="10" fill="none" stroke-linecap="round"/></pattern>
     <pattern id="grid" patternUnits="userSpaceOnUse" width="1000" height="1000">
       <path d="M500 0V1000M0 500H1000" stroke="#e5dfd3" stroke-width="8"/><path d="M0 0V1000M0 0H1000" stroke="#d8d0c1" stroke-width="14"/></pattern>`;
 }
@@ -682,6 +694,40 @@ function furnSVG(t,w,d,c){
       for (let k=0;k<8;k++) s += `<ellipse cx="0" cy="${-m*.27}" rx="${m*.1}" ry="${m*.21}" transform="rotate(${k*45})" fill="${shade(c,.8)}" ${ST}/>`;
       return s + `<circle r="${m*.1}" fill="#8a6a4a" ${ST}/>`;
     }
+    case 'tree': case 'fruittree': {
+      // 俯视树冠：几团叶簇 + 树干
+      let s = `<circle r="${m/2}" fill="${shade(c,.85)}" fill-opacity=".55" ${ST}/>`;
+      for (let k=0;k<7;k++){ const a = k*51.4*Math.PI/180, r = m*.26; s += `<circle cx="${Math.cos(a)*r}" cy="${Math.sin(a)*r}" r="${m*.2}" fill="${c}" fill-opacity=".75" ${ST}/>`; }
+      if (t === 'fruittree') for (let k=0;k<9;k++){ const a = k*40*Math.PI/180, r = m*(.15 + (k%3)*.1); s += `<circle cx="${Math.cos(a)*r}" cy="${Math.sin(a)*r}" r="${m*.035}" fill="#e0703a" ${ST}/>`; }
+      return s + `<circle r="${m*.07}" fill="#7a5a3c" ${ST}/>`;
+    }
+    case 'palm': {
+      let s = '';
+      for (let k=0;k<9;k++) s += `<path d="M0 0Q${m*.12} ${-m*.25} 0 ${-m*.5}Q${-m*.12} ${-m*.25} 0 0Z" transform="rotate(${k*40})" fill="${k%2?c:shade(c,.8)}" ${ST}/>`;
+      return s + `<circle r="${m*.06}" fill="#8a6a4a" ${ST}/>`;
+    }
+    case 'shrub': {
+      let s = '';
+      for (let k=0;k<6;k++){ const a = k*60*Math.PI/180, r = m*.2; s += `<circle cx="${Math.cos(a)*r}" cy="${Math.sin(a)*r}" r="${m*.28}" fill="${k%2?c:shade(c,.88)}" ${ST}/>`; }
+      return s + `<circle r="${m*.25}" fill="${shade(c,1.1)}" ${ST}/>`;
+    }
+    case 'hedge': {
+      let s = rc(x,y,w,d,shade(c,.9),'rx="120"'), n = Math.max(2, Math.round(w/(d*.8)));
+      for (let k=0;k<n;k++) s += `<circle cx="${x + w*(k+.5)/n}" cy="0" r="${Math.min(d*.45, w/n*.6)}" fill="${c}" ${ST}/>`;
+      return s;
+    }
+    case 'flowerbed': {
+      let s = rc(x,y,w,d,shade(c,1.1),'rx="40"') + rc(x+60,y+60,w-120,d-120,'#6b4c33','rx="30"');
+      const cols = ['#e85d75','#f2c14e','#f7f3ea','#b36bd6','#ef8a3a'], R = rng2(Math.round(w*3+d));
+      for (let k=0;k<Math.round(w*d/60000);k++) s += `<circle cx="${x+100+R()*(w-200)}" cy="${y+100+R()*(d-200)}" r="${40+R()*30}" fill="${cols[k%5]}" ${ST}/>`;
+      return s;
+    }
+    case 'stepstone': return ec(0,0,w/2,d/2*.85,c) + ec(-w*.1,-d*.08,w*.18,d*.1,shade(c,1.12),'stroke-opacity="0"');
+    case 'gardenbench': {
+      let s = rc(x,y,w,d,c,'rx="20"');
+      for (let k=1;k<5;k++) s += ln(x, y+d*k/5, x+w, y+d*k/5);
+      return s;
+    }
     case 'table': return rc(x,y,w,d,c,'rx="30"') + rc(x+50,y+50,w-100,d-100,'none','rx="20" opacity=".4"');
     case 'roundtable': return ec(0,0,w/2,d/2,c) + ec(0,0,w/2-50,d/2-50,'none','opacity=".4"');
     case 'counter': return rc(x,y,w,d,c) + ln(x,y+d-40,x+w,y+d-40,DASH);
@@ -738,9 +784,11 @@ function furnSVG(t,w,d,c){
 }
 
 /* ======================= 渲染 ======================= */
-const NOLABEL = ['plant','floorlamp','sidetable','barstool','beanbag'];
+const NOLABEL = ['plant','floorlamp','sidetable','barstool','beanbag','tree','palm','fruittree','shrub','stepstone'];
 function renderRooms(){
-  let s = '';
+  const [sx0,sy0,sx1,sy1] = SIDEWALK;
+  let s = `<rect x="${sx0}" y="${sy0}" width="${sx1-sx0}" height="${sy1-sy0}" fill="#dcd8d0" stroke="#b9b3a7" stroke-width="1" vector-effect="non-scaling-stroke"/>
+    <polygon points="${LOT.map(p=>p.join(',')).join(' ')}" fill="url(#m-grass)" stroke="#5f7f4a" stroke-width="1.5" stroke-dasharray="8 4" vector-effect="non-scaling-stroke"/>`;
   ROOMS.forEach(r => s += `<polygon class="room" data-room="${r.id}" points="${r.poly.map(p=>p.join(',')).join(' ')}" fill="url(#m-${state.rooms[r.id].mat})"/>`);
   const sill = ([a,b,c,d]) => `<rect x="${a}" y="${b}" width="${c-a}" height="${d-b}" fill="#e2dacb" stroke="#b9b0a0" stroke-width="1" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
   DOORS.forEach(d => s += sill(d.rect)); SLIDES.forEach(d => s += sill(d.rect));
@@ -791,8 +839,8 @@ function renderOpenings(){
     else { const L = x1-x0, m = (y0+y1)/2; s += `<rect x="${x0}" y="${m-45}" width="${L*.55}" height="40" fill="#fff" ${DS}/><rect x="${x1-L*.55}" y="${m+5}" width="${L*.55}" height="40" fill="#fff" ${DS}/>`; }
   });
   // 入户标识
-  s += `<path d="M3350 8755H4350M4150 8600L4400 8755L4150 8910" fill="none" stroke="#b5653a" stroke-width="2" vector-effect="non-scaling-stroke"/>
-        <text x="3380" y="8600" font-size="200" fill="#b5653a">${tr('入户','Entry', 'Entrada')}</text>`;
+  s += `<path d="M12448 45000V43650M12293 43850L12448 43600L12603 43850" fill="none" stroke="#b5653a" stroke-width="2" vector-effect="non-scaling-stroke"/>
+        <text x="12600" y="44900" font-size="220" fill="#b5653a">${tr('入户','Entry', 'Entrada')}</text>`;
   $('#gOpen').innerHTML = s;
 }
 
@@ -808,7 +856,7 @@ function renderLabels(){
 
 function renderDims(){
   const DC = '#7d7160', LS = `stroke="${DC}" stroke-width="1" vector-effect="non-scaling-stroke"`, TK = `stroke="${DC}" stroke-width="2" vector-effect="non-scaling-stroke"`;
-  const txt = (x,y,v,rot) => `<text x="${x}" y="${y}" font-size="${v<400?140:200}" text-anchor="middle" fill="${DC}" ${rot?`transform="rotate(-90 ${x} ${y})"`:''}>${v}</text>`;
+  const txt = (x,y,v,rot) => `<text x="${x}" y="${y}" font-size="${v<400?140:v<5000?200:380}" text-anchor="middle" fill="${DC}" ${rot?`transform="rotate(-90 ${x} ${y})"`:''}>${v}</text>`;
   const chain = (horiz, at, start, segs) => {
     const pts = [start]; segs.forEach(v => pts.push(pts[pts.length-1]+v));
     let s = horiz ? `<line x1="${pts[0]}" y1="${at}" x2="${pts.at(-1)}" y2="${at}" ${LS}/>` : `<line x1="${at}" y1="${pts[0]}" x2="${at}" y2="${pts.at(-1)}" ${LS}/>`;
@@ -820,15 +868,18 @@ function renderDims(){
   };
   const g = $('#gDims');
   g.innerHTML =
-    chain(true,-750,0,[1580,240,2760,240,1540,240,3670]) + chain(true,-1250,0,[10270]) +
-    chain(true,11350,0,[2180,240,2160,240,5450,240,1340]) + chain(true,11850,0,[11850]) +
-    chain(false,-800,0,[3370,1580,240,2770,240,2360]) + chain(false,-1300,0,[10560]) +
-    chain(false,12750,0,[3370,240,2760,240,3950]) + chain(false,13250,0,[10560]);
+    // 地块
+    chain(true,-1200,0,[19037]) + chain(true,59800,0,[20900]) + chain(false,-1300,0,[55870]) +
+    // 后院 / 房屋 / 前院进深
+    chain(false,-600,0,[32169,15697,8004]) +
+    // 房屋各段
+    chain(true,31300,2650,[10499,1147,152,2998,152]) + chain(false,18500,32169,[3048,1448,3052,1448,3200]) +
+    chain(true,48900,0,[13297]) + chain(false,1900,37567,[4301,5998]);
   g.setAttribute('display', ui.layers.dims ? 'inline' : 'none');
 }
 
 function renderGrid(){
-  $('#gGrid').innerHTML = `<rect x="-20000" y="-20000" width="55000" height="55000" fill="${ui.layers.grid ? 'url(#grid)' : 'transparent'}" data-bg="1"/>`;
+  $('#gGrid').innerHTML = `<rect x="-15000" y="-15000" width="52000" height="90000" fill="${ui.layers.grid ? 'url(#grid)' : 'transparent'}" data-bg="1"/>`;
 }
 
 function renderMeasure(){
@@ -882,7 +933,7 @@ function renderAll(){
 
 function updateHeader(){
   const tot = ROOMS.filter(r => r.counted !== false).reduce((a,r) => a + area(r.poly), 0);
-  $('#subtitle').textContent = tr(`套内使用面积约 ${fmt(tot)} m² · 尺寸单位 mm · 原图比例 1:60`, `Net floor area ≈ ${fmt(tot)} m² · Units: mm · Original scale 1:60`, `Área útil ≈ ${fmt(tot)} m² · Unidade: mm · Escala original 1:60`);
+  $('#subtitle').textContent = tr(`套内使用面积约 ${fmt(tot)} m² · 尺寸单位 mm · 原图比例 1:100`, `Net floor area ≈ ${fmt(tot)} m² · Units: mm · Original scale 1:100`, `Área útil ≈ ${fmt(tot)} m² · Unidade: mm · Escala original 1:100`);
   $('#undo').disabled = !undoStack.length; $('#redo').disabled = !redoStack.length;
   $('#undo').style.opacity = undoStack.length ? 1 : .4; $('#redo').style.opacity = redoStack.length ? 1 : .4;
 }
@@ -916,7 +967,7 @@ function overviewPanel(){
   <section><h3>${tr('房间面积','Room Areas', 'Áreas dos cômodos')} <small>${tr('点击查看 / 更换地面','Click to view / change flooring', 'Clique para ver / trocar o piso')}</small></h3>
     <table>${rows}</table>
     <div class="total"><span>${tr('套内使用面积','Net floor area', 'Área útil')}</span><b>${fmt(tot)} m²</b></div>
-    <div class="muted" style="font-size:11px;margin-top:4px">${tr('* 飘窗不计入使用面积；面积按墙体内净尺寸计算','* Bay windows are excluded; areas use net inner wall dimensions', '* Janelas de sacada não entram na área útil; áreas medidas pelo lado interno das paredes')}</div></section>
+    <div class="muted" style="font-size:11px;margin-top:4px">${tr('* 车库和室外铺装不计入使用面积；面积按墙体内净尺寸计算','* Garage and outdoor paving are excluded; areas use net inner wall dimensions', '* Garagem e piso externo não entram na área útil; áreas medidas pelo lado interno das paredes')}</div></section>
   <section><h3>${tr('地面材料估算','Flooring Estimate', 'Estimativa de piso')} <small>${tr('含 5% 损耗','incl. 5% waste', 'inclui 5% de perda')}</small></h3>
     <table>${matRows}</table>
     <div class="total"><span>${tr('地面材料合计','Flooring total', 'Total de piso')}</span><b>¥${Math.round(cost).toLocaleString()}</b></div></section>
@@ -1263,7 +1314,7 @@ svg.addEventListener('pointermove', e => {
   $('#cx').textContent = Math.round(p.x) + ' mm'; $('#cy').textContent = Math.round(p.y) + ' mm';
   if (!drag){
     const room = e.target.closest && e.target.closest('[data-room]');
-    $('#hover').innerHTML = room ? `<b>${esc(state.rooms[room.dataset.room].name)}</b> ${fmt(area(ROOMS.find(r=>r.id===room.dataset.room).poly))} m²` : '';
+    $('#hover').innerHTML = room ? `<b>${esc(nm(state.rooms[room.dataset.room].name))}</b> ${fmt(area(ROOMS.find(r=>r.id===room.dataset.room).poly))} m²` : '';
     if (ui.tool === 'measure' && ui.mA){ ui.mCur = snapPoint(p, e.shiftKey); renderMeasure(); }
     return;
   }
@@ -1417,7 +1468,7 @@ function exportPNG(){
   clone.setAttribute('viewBox', `${BOUNDS.x} ${BOUNDS.y} ${BOUNDS.w} ${BOUNDS.h}`);
   clone.setAttribute('width', W); clone.setAttribute('height', H);
   clone.querySelector('#gSel').innerHTML = '';
-  clone.querySelector('#gGrid').innerHTML = `<rect x="-20000" y="-20000" width="55000" height="55000" fill="${ui.layers.grid?'url(#grid)':'#f7f4ee'}"/>`;
+  clone.querySelector('#gGrid').innerHTML = `<rect x="-15000" y="-15000" width="52000" height="90000" fill="${ui.layers.grid?'url(#grid)':'#f7f4ee'}"/>`;
   const bg = document.createElementNS('http://www.w3.org/2000/svg','rect');
   Object.entries({x:-20000,y:-20000,width:55000,height:55000,fill:'#f7f4ee'}).forEach(([k,v]) => bg.setAttribute(k,v));
   clone.insertBefore(bg, clone.querySelector('#gGrid'));
@@ -1464,7 +1515,7 @@ document.querySelectorAll('#layers .btn').forEach(b => b.onclick = () => {
 $('#zoomIn').onclick = () => zoomCenter(1.25);
 $('#zoomOut').onclick = () => zoomCenter(.8);
 $('#fit').onclick = fitView;
-$('#s60').onclick = () => { setRatio(60); toast(tr('已按 1:60 显示（与原始户型图同比例）', 'Showing at 1:60 (same scale as the original plan)', 'Exibindo em 1:60 (mesma escala da planta original)')); };
+$('#s60').onclick = () => { setRatio(60); toast(tr('已按 1:60 显示', 'Showing at 1:60', 'Exibindo em 1:60')); };
 $('#s100').onclick = () => setRatio(100);
 $('#undo').onclick = undo; $('#redo').onclick = redo;
 $('#clearAll').onclick = clearLayout;
@@ -1546,7 +1597,7 @@ import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {CSS2DRenderer, CSS2DObject} from 'three/addons/renderers/CSS2DRenderer.js';
 
 const stage = $('#stage'), host = $('#view3d');
-const OX = 6000, OY = 5300, H = 2.8, FOV = 45;       // 户型中心放在世界原点，层高 2.8 m
+const OX = 8800, OY = 40000, H = 2.8, FOV = 45;      // 房屋中心放在世界原点，层高 2.8 m
 const wx = x => (x - OX) / 1000, wz = y => (y - OY) / 1000, M = v => v / 1000;
 const SW = () => stage.clientWidth, SH = () => stage.clientHeight;
 const opt = {cut:2.8, furn:true, labels:true, night:false, hour:10, mode:'orbit'};
@@ -1574,7 +1625,7 @@ function init(){
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(FOV, SW()/SH(), .05, 300);
   orbit = new OrbitControls(camera, renderer.domElement);
-  orbit.enableDamping = true; orbit.maxPolarAngle = Math.PI*.495; orbit.minDistance = 1.5; orbit.maxDistance = 45;
+  orbit.enableDamping = true; orbit.maxPolarAngle = Math.PI*.495; orbit.minDistance = 1.5; orbit.maxDistance = 110;
   walkCtl = new PointerLockControls(camera, document.body);
   walkCtl.addEventListener('lock', () => { $('#walkOverlay').style.display = 'none'; $('#cross').style.display = 'block'; });
   walkCtl.addEventListener('unlock', () => { if (opt.mode === 'walk'){ $('#walkOverlay').style.display = 'flex'; $('#cross').style.display = 'none'; } });
@@ -1582,11 +1633,18 @@ function init(){
   hemi = new THREE.HemisphereLight(0xfff8ee, 0xb9a88f, 1.1);
   sun = new THREE.DirectionalLight(0xfff1dd, 2.6);
   sun.castShadow = true; sun.shadow.mapSize.setScalar(COARSE ? 2048 : 4096);   // 平板 GPU 用小一点的阴影贴图
-  Object.assign(sun.shadow.camera, {left:-11, right:11, top:11, bottom:-11, near:1, far:60});
+  Object.assign(sun.shadow.camera, {left:-16, right:16, top:16, bottom:-16, near:1, far:80});
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
   ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), new THREE.MeshStandardMaterial({color:0xf2eee7, roughness:1}));
   ground.rotation.x = -Math.PI/2; ground.position.y = -0.015; ground.receiveShadow = true;
   scene.add(hemi, sun, sun.target, ground);
+  // 地块草坪 + 人行道（不参与拾取，略低于室内地面）
+  const lawnGeo = new THREE.ShapeGeometry(shapeOf(LOT)); lawnGeo.rotateX(-Math.PI/2);
+  const lawn = new THREE.Mesh(lawnGeo, floorMat('grass')); lawn.position.y = -.008; lawn.receiveShadow = true;
+  const [sx0, sy0, sx1, sy1] = SIDEWALK;
+  const walk = new THREE.Mesh(new THREE.BoxGeometry(M(sx1-sx0), .1, M(sy1-sy0)), mat('#d6d2ca', {roughness:.95}));
+  walk.position.set(wx((sx0+sx1)/2), -.04, wz((sy0+sy1)/2)); walk.receiveShadow = true;
+  scene.add(lawn, walk);
 
   const pm = new THREE.PMREMGenerator(renderer); envTex = pm.fromScene(new RoomEnvironment(), .04).texture; pm.dispose();
   glassMat = new THREE.MeshPhysicalMaterial({color:0xcfe6ef, roughness:.05, transparent:true, opacity:.28, depthWrite:false, side:THREE.DoubleSide});
@@ -1673,6 +1731,8 @@ const TEX = {
   tile800:{sx:.8, sy:.8, base:'#ebe6dd', grout:'#cfc6b7', rough:.3}, tile600:{sx:.6, sy:.6, base:'#dfe3e0', grout:'#bfc6c1', rough:.35},
   antislip:{sx:.3, sy:.3, base:'#d3d8d4', grout:'#aab2ac', rough:.8}, marble:{sx:1.2, sy:1.2, base:'#f2efe9', grout:'#d9d2c4', rough:.18},
   terrazzo:{sx:.5, sy:.5, base:'#e6dfd3', rough:.4}, carpet:{sx:.3, sy:.3, base:'#c6bfd2', rough:1},
+  concrete:{sx:3, sy:3, base:'#cbc8c2', grout:'#b1ada5', rough:.9}, paver:{sx:.4, sy:.4, base:'#bba993', rough:.85},
+  grass:{sx:2, sy:2, base:'#7fae5f', rough:1},
 };
 const floorMats = {};
 function floorMat(kind){
@@ -1698,6 +1758,12 @@ function floorMat(kind){
   } else if (kind === 'marble'){
     g.strokeStyle = 'rgba(160,150,135,.35)';
     for (let k = 0; k < 6; k++){ g.lineWidth = 1 + R()*3; g.beginPath(); g.moveTo(R()*W, 0); g.bezierCurveTo(R()*W, R()*Hh, R()*W, R()*Hh, R()*W, Hh); g.stroke(); }
+  } else if (kind === 'grass'){
+    for (let k = 0; k < 9000; k++){ const l = 70 + R()*50; g.fillStyle = `hsl(${88 + R()*22},${35 + R()*20}%,${l*.4}%)`; g.fillRect(R()*W, R()*Hh, 1.5, 4 + R()*6); }
+  } else if (kind === 'paver'){
+    g.strokeStyle = 'rgba(90,70,50,.45)'; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(0, Hh/2); g.lineTo(W, Hh/2); g.moveTo(0, 0); g.lineTo(W, 0); g.moveTo(0, 0); g.lineTo(0, Hh/2); g.moveTo(W/2, Hh/2); g.lineTo(W/2, Hh); g.stroke();
+    for (let k = 0; k < 1500; k++){ g.fillStyle = `rgba(0,0,0,${R()*.06})`; g.fillRect(R()*W, R()*Hh, 2, 2); }
   } else if (kind === 'terrazzo'){
     const cs = ['#b9a58c','#8fa3a0','#c9b7a2','#a88f76','#7e8a86'];
     for (let k = 0; k < 160; k++){ g.fillStyle = cs[k%5]; g.beginPath(); g.arc(R()*W, R()*Hh, 2 + R()*7, 0, 7); g.fill(); }
@@ -1992,6 +2058,69 @@ function buildFurniture(f){
         const r = box(a, h, b, mat(cc, {roughness:1}), 0, y + .002); r.castShadow = false; g.add(r);
       });
       break;
+    case 'tree': case 'fruittree': {
+      // 树：略弯的树干 + 几团椭球树冠（果树矮一些，带果子）
+      const r = Math.min(w, d)/2, fruit = f.type === 'fruittree', H = Math.min(fruit ? 1.6 + r*1.1 : 2.2 + r*1.6, 10), bark = mat('#6b5240', {roughness:.95});
+      const lm = [mat(c, {roughness:.85}), mat(darker(c, .82), {roughness:.85}), mat(lighter(c, .12), {roughness:.85})];
+      const cy = H*.62;
+      g.add(rod([0, 0, 0], [.04*r, cy, .03*r], .07 + r*.035, bark, .04 + r*.02));
+      for (let k = 0; k < 3; k++){ const a = k*2.1 + R(); g.add(rod([.02*r, cy*.7, .02*r], [Math.cos(a)*r*.45, cy + .2, Math.sin(a)*r*.45], .04 + r*.012, bark, .02)); }
+      g.add(blob(r*.78, H*.26, r*.78, lm[0], 0, cy + H*.08, 0, 20));
+      const n = 6 + Math.round(r*2);
+      for (let k = 0; k < n; k++){ const a = k*2.399 + R()*.4, rr = r*(.35 + R()*.3), s0 = r*(.38 + R()*.18);
+        g.add(blob(s0, s0*.8, s0, lm[k % 3], Math.cos(a)*rr, cy + H*(.02 + R()*.2), Math.sin(a)*rr, 16)); }
+      if (fruit){ const fm = mat('#e0703a', {roughness:.5});
+        for (let k = 0; k < 14; k++){ const a = k*2.399, rr = r*(.55 + R()*.25); g.add(blob(.05, .05, .05, fm, Math.cos(a)*rr, cy + H*(R()*.18 - .02), Math.sin(a)*rr, 10)); } }
+      break;
+    }
+    case 'palm': {
+      // 棕榈：分节树干 + 下垂的羽状叶
+      const r = Math.min(w, d)/2, H = Math.min(2.5 + r*2.2, 9), bark = mat('#8a7458', {roughness:.95}), lm = mat(c, {roughness:.7, side:THREE.DoubleSide});
+      const segs = Math.round(H/.35);
+      for (let k = 0; k < segs; k++){ const y0 = k*H/segs, bend = (k/segs)**2*r*.25; g.add(cyl(.12 - k*.003, .14 - k*.003, H/segs*.92, bark, bend, y0, 0, 12)); }
+      const top = new THREE.Vector3(r*.25, H, 0);
+      for (let k = 0; k < 11; k++){
+        const a = k*2*Math.PI/11 + R()*.2, L = r*(.85 + R()*.25), p = new THREE.Group();
+        p.position.copy(top); p.rotation.set(0, -a, 0);
+        for (let j = 0; j < 6; j++){ const t = (j + .5)/6, x = L*t, y = .25*L*t - .75*L*t*t;
+          const lf = blob(L/12, .006, (.18 - t*.1)*r*.6 + .06, lm, x, y, 0, 10); lf.rotation.z = .3 - t*1.2; p.add(lf); }
+        g.add(p);
+      }
+      g.add(blob(.2, .18, .2, bark, top.x, H - .05, 0, 12));
+      break;
+    }
+    case 'shrub': {
+      const r = Math.min(w, d)/2, H = Math.max(.35, r*1.3), lm = [mat(c, {roughness:.85}), mat(darker(c, .85), {roughness:.85})];
+      g.add(blob(r*.85, H*.5, r*.85, lm[0], 0, H*.45, 0, 18));
+      for (let k = 0; k < 7; k++){ const a = k*2.399 + R()*.3, rr = r*(.35 + R()*.25), s0 = r*(.4 + R()*.15);
+        g.add(blob(s0, s0*.8, s0, lm[k % 2], Math.cos(a)*rr, H*(.35 + R()*.3), Math.sin(a)*rr, 14)); }
+      break;
+    }
+    case 'hedge': {
+      const Hh = 1.2, lm = [mat(c, {roughness:.9}), mat(darker(c, .85), {roughness:.9})];
+      g.add(rbox(w, Hh*.92, d, lm[0], 0, 0, 0, Math.min(.15, d/2 - .01)));
+      const n = Math.max(2, Math.round(w/(d*.7)));
+      for (let k = 0; k < n; k++) g.add(blob(Math.min(d*.55, w/n*.7), .22, d*.55, lm[k % 2], -w/2 + w*(k + .5)/n, Hh*.9, 0, 12));
+      break;
+    }
+    case 'flowerbed': {
+      const edge = mat(lighter(c, .5), {roughness:.8}), soil = mat('#5a4030', {roughness:1}), leaf = mat('#5f8f4e', {roughness:.8});
+      g.add(shell(w, d, .28, .06, .05, edge), box(w - .12, .24, d - .12, soil, 0, 0, 0));
+      const cols = ['#e85d75','#f2c14e','#f7f3ea','#b36bd6','#ef8a3a'], n = Math.round(w*d*28);
+      for (let k = 0; k < n; k++){
+        const x = (R() - .5)*(w - .24), z = (R() - .5)*(d - .24), h = .12 + R()*.18;
+        g.add(rod([x, .24, z], [x, .24 + h, z], .006, leaf), blob(.035, .025, .035, mat(cols[k % 5], {roughness:.6}), x, .24 + h, z, 8));
+      }
+      break;
+    }
+    case 'stepstone': g.add(cyl(Math.min(w, d)/2, Math.min(w, d)/2, .04, mat(c, {roughness:.95}), 0, 0, 0, 10)); break;
+    case 'gardenbench': {
+      const wm = woodM(c), fm = metal();
+      [-1, 1].forEach(sx => { g.add(box(.05, .42, d*.8, fm, sx*(w/2 - .08), 0, 0), box(.05, .5, .05, fm, sx*(w/2 - .08), .42, bz + .06)); });
+      for (let k = 0; k < 4; k++) g.add(box(w, .03, d*.8/4 - .015, wm, 0, .42, -d*.4 + d*.8/4*(k + .5)));
+      for (let k = 0; k < 3; k++) g.add(box(w, .07, .025, wm, 0, .55 + k*.12, bz + .06));
+      break;
+    }
     case 'plant': {
       const r = Math.min(w, d)/2, H = .9 + r*1.6, pot = mat('#d9d2c5', {roughness:.6}), lm = [mat('#5f8f4e', {roughness:.6, side:THREE.DoubleSide}), mat('#79a862', {roughness:.6, side:THREE.DoubleSide})];
       g.add(lathe([[0, 0], [r*.4, 0], [r*.44, .02], [r*.54, .36], [r*.57, .4], [r*.52, .4], [r*.5, .37], [0, .37]], pot, 0, 0, 0, 36), cyl(r*.49, r*.49, .005, '#4a3a2c', 0, .368, 0, 28));
@@ -2316,7 +2445,7 @@ function buildArch(){
   clearGroup(archFloor); clearGroup(archUp); lampG.clear(); doors.length = 0; colliders = [];
   const top = opt.cut;
   ROOMS.forEach(r => {
-    const m = floorMat(state.rooms[r.id].mat), bay = r.counted === false;
+    const m = floorMat(state.rooms[r.id].mat), bay = !!r.raised;
     const geo = bay ? new THREE.ExtrudeGeometry(shapeOf(r.poly), {depth:.45, bevelEnabled:false}) : new THREE.ShapeGeometry(shapeOf(r.poly));
     geo.rotateX(-Math.PI/2);
     const fl = new THREE.Mesh(geo, bay ? [m, mat('#e9e4da')] : m);
@@ -2324,8 +2453,8 @@ function buildArch(){
     if (bay){ fl.castShadow = true; archUp.add(fl); } else archFloor.add(fl);
     // 天花：法线朝下，只在室内仰视时可见
     const cg = new THREE.ShapeGeometry(shapeOf(r.poly, true)); cg.rotateX(Math.PI/2);
-    const ceil = new THREE.Mesh(cg, mat('#fbfaf7', {roughness:1})); ceil.position.y = H; ceil.visible = top >= H; archUp.add(ceil);
-    if (r.at){
+    const ceil = new THREE.Mesh(cg, mat('#fbfaf7', {roughness:1})); ceil.position.y = H; ceil.visible = top >= H; if (!r.outdoor) archUp.add(ceil);
+    if (r.at && !r.outdoor){
       const lamp = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .02, 32), new THREE.MeshStandardMaterial({color:'#fff', emissive:'#fff2d6', emissiveIntensity:.3}));
       lamp.position.set(wx(r.at[0]), H - .012, wz(r.at[1])); lamp.visible = top >= H; lampG.add(lamp);
       const pl = new THREE.PointLight(0xffd9a8, 0, 7, 1.6); pl.position.set(wx(r.at[0]), H - .25, wz(r.at[1])); lampG.add(pl);
@@ -2338,10 +2467,10 @@ function buildArch(){
     colliders.push([wx(w[0]), wz(w[1]), wx(w[2]), wz(w[3])]);
   });
   // 门洞、飘窗洞口上方过梁
-  [...DOORS.map(d => [d.rect, 2.1]), ...SLIDES.map(s => [s.rect, s.v ? 2.4 : 2.1]), [[10270,800,10510,2600], 2.4], [[10270,4260,10510,5740], 2.4]]
+  [...DOORS.map(d => [d.rect, 2.1]), ...SLIDES.map(s => [s.rect, s.h || (s.v ? 2.4 : 2.1)])]
     .forEach(([r, h]) => { if (top > h) wallBox(r, h, top); });
   WINS.forEach((r, i) => {
-    const sill = i === 0 ? 1.4 : i >= 6 ? .45 : .9, head = 2.4;
+    const sill = r[4] ?? .9, head = r[5] ?? 2.4;
     wallBox(r, 0, Math.min(sill, top)); if (top > head) wallBox(r, head, top);
     colliders.push([wx(r[0]), wz(r[1]), wx(r[2]), wz(r[3])]);
     const gTop = Math.min(head, top); if (gTop <= sill) return;
@@ -2363,8 +2492,8 @@ function buildArch(){
     door.cur = door.a1; pivot.rotation.y = door.cur; leaf.userData.door = knob.userData.door = door;
     doors.push(door); archUp.add(pivot);
   });
-  SLIDES.forEach(({rect:[x0, y0, x1, y1], v}) => {
-    const L = M(v ? y1-y0 : x1-x0), ph = Math.min(v ? 2.4 : 2.1, top), pl = L*.55;
+  SLIDES.forEach(({rect:[x0, y0, x1, y1], v, h}) => {
+    const L = M(v ? y1-y0 : x1-x0), ph = Math.min(h || (v ? 2.4 : 2.1), top), pl = L*.55;
     [[-1, -.02], [1, .02]].forEach(([s, off]) => {
       const c = s < 0 ? -L/2 + pl/2 : L/2 - pl/2, x = v ? wx((x0+x1)/2) + off : wx(x0) + L/2 + c, z = v ? wz(y0) + L/2 + c : wz((y0+y1)/2) + off;
       const p = new THREE.Mesh(new THREE.BoxGeometry(v ? .02 : pl, ph, v ? pl : .02), glassMat); p.position.set(x, ph/2, z); archUp.add(p);
@@ -2443,11 +2572,11 @@ function planPose(){
   return pose(t, new THREE.Vector3(t.x, dist, t.z + 1e-4));
 }
 function isoFrom(P){
-  const d = THREE.MathUtils.clamp(P.p.y, 5, 30), dir = new THREE.Vector3(.3, .82, .49).normalize();
+  const d = THREE.MathUtils.clamp(P.p.y, 5, 70), dir = new THREE.Vector3(.3, .82, .49).normalize();
   return pose(P.t.clone(), P.t.clone().addScaledVector(dir, d));
 }
-const isoWhole = () => pose(new THREE.Vector3(0, 0, 0), new THREE.Vector3(5.5, 15.5, 10));
-const topWhole = () => pose(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 19, 1e-4));
+const isoWhole = () => pose(new THREE.Vector3(0, 0, 0), new THREE.Vector3(9, 25, 16));
+const topWhole = () => pose(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 30, 1e-4));
 const curPose = () => pose(orbit.target.clone(), camera.position.clone());
 // 以目标点为中心做球坐标插值：镜头沿弧线倾斜环绕，而不是直线穿越
 function camTween(A, B, e){
@@ -2534,7 +2663,7 @@ function groundAt(x, y){
   const r = renderer.domElement.getBoundingClientRect(), hit = new THREE.Vector3();
   ptr.set((x - r.left)/r.width*2 - 1, -(y - r.top)/r.height*2 + 1);
   ray.setFromCamera(ptr, camera);
-  if (!ray.ray.intersectPlane(ground0, hit) || hit.distanceTo(camera.position) > 60) return null;
+  if (!ray.ray.intersectPlane(ground0, hit) || hit.distanceTo(camera.position) > 150) return null;
   // 视线先碰到墙体（或飘窗台）时，落点取碰到的位置，而不是穿过墙落到看不见的墙后
   const wall = ray.intersectObjects([archUp, archFloor], true).find(h => h.object.material !== glassMat && h.object.visible);
   if (wall && wall.distance < hit.distanceTo(camera.position) - .01) hit.set(wall.point.x, 0, wall.point.z);
@@ -2597,7 +2726,7 @@ function setMode(m){
     window.select(null);
     if (opt.cut < H){ opt.cut = H; syncCutBtns(); sync(); }
     orbit.enabled = false; fly = null;
-    camera.position.set(wx(4200), 1.6, wz(8755)); camera.lookAt(wx(7000), 1.5, wz(8755));   // 入户门外
+    camera.position.set(wx(12448), 1.6, wz(45200)); camera.lookAt(wx(12448), 1.5, wz(42000));   // 入户门外（车库）
     $('#walkOverlay').style.display = 'flex';
     syncHint3d();
   } else {
