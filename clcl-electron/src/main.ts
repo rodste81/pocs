@@ -34,6 +34,8 @@ let history: store.HistoryEntry[] = [];
 let tray: Tray | undefined;
 let anchor: BrowserWindow | undefined;
 let searchWin: BrowserWindow | undefined;
+let openMenu: Menu | undefined; // referencia viva enquanto o menu esta aberto (evita coleta pelo GC)
+let searchShownAt = 0;
 let searchIndex: { text: string; fromTemplate: boolean }[] = [];
 let templatesMenu: Menu | undefined; // cache: so reconstroi quando os templates mudam
 let lastSeen = '';
@@ -44,6 +46,19 @@ let ownWrite: string | undefined; // texto gravado por nos mesmos (template) -> 
 let warnedAccessibility = false;
 
 // ---------- utilidades ----------
+
+// Log de diagnostico: userData/clcl.log e, se existir, a pasta "new clcl" do iCloud.
+function log(...parts: unknown[]): void {
+  const line = `${new Date().toISOString()} ${parts.map((p) => (p instanceof Error ? p.stack ?? p.message : String(p))).join(' ')}\n`;
+  const shared = path.join(os.homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Desktop/new clcl');
+  for (const dir of [app.getPath('userData'), shared]) {
+    try {
+      if (fs.existsSync(dir)) fs.appendFileSync(path.join(dir, 'clcl.log'), line);
+    } catch {
+      /* log e melhor esforco */
+    }
+  }
+}
 
 function label(text: string, title = ''): string {
   let s = title.trim();
@@ -339,7 +354,12 @@ function createSearchWindow(): void {
   });
   searchWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   void searchWin.loadFile(path.join(__dirname, '..', 'ui', 'search.html'));
-  searchWin.on('blur', () => hideSearch(false));
+  searchWin.on('blur', () => {
+    // ao abrir, o macOS pode disparar um blur antes de o app virar o ativo
+    if (Date.now() - searchShownAt > 400) hideSearch(false);
+  });
+  searchWin.webContents.on('did-fail-load', (_e, code, desc) => log('busca: falha ao carregar', code, desc));
+  searchWin.webContents.on('render-process-gone', (_e, d) => log('busca: renderer caiu', d.reason));
   searchWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   searchWin.webContents.on('will-navigate', (ev) => ev.preventDefault());
 }
@@ -354,9 +374,12 @@ function toggleSearch(): void {
   const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
   const [w, h] = win.getSize();
   win.setPosition(Math.round(area.x + (area.width - w) / 2), Math.round(area.y + (area.height - h) / 3));
+  searchShownAt = Date.now();
   win.show();
+  if (isMac) app.focus({ steal: true }); // app sem Dock: precisa virar o ativo para receber o teclado
   win.focus();
   win.webContents.send('search:show');
+  log('busca aberta, focada =', win.isFocused());
 }
 
 function registerSearchIpc(): void {
@@ -422,7 +445,17 @@ function popupAtCursor(menu: Menu): void {
   const pt = screen.getCursorScreenPoint();
   win.setBounds({ x: pt.x, y: pt.y, width: 1, height: 1 });
   win.showInactive();
-  menu.popup({ window: win, x: 0, y: 0, callback: () => win.hide() });
+  openMenu = menu;
+  log('popup', menu.items.length, 'itens em', pt.x, pt.y);
+  menu.popup({
+    window: win,
+    x: 0,
+    y: 0,
+    callback: () => {
+      win.hide();
+      log('popup fechado');
+    },
+  });
 }
 
 function createAnchor(): void {
@@ -485,10 +518,19 @@ function registerHotkeys(): void {
   const reg = (key: string, fn: () => void): void => {
     let ok = false;
     try {
-      ok = globalShortcut.register(key, fn);
-    } catch {
+      ok = globalShortcut.register(key, () => {
+        log('atalho', key);
+        try {
+          fn();
+        } catch (err) {
+          log('erro no atalho', key, err);
+        }
+      });
+    } catch (err) {
+      log('erro ao registrar', key, err);
       ok = false;
     }
+    log('registro', key, ok ? 'ok' : 'FALHOU');
     if (!ok) failed.push(key);
   };
   reg(cfg.hotkeyTemplates, () => popupAtCursor(buildTemplatesMenu()));
@@ -506,6 +548,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     if (isMac) app.dock?.hide();
     cfg = store.loadConfig();
+    log('--- inicio', app.getVersion(), 'electron', process.versions.electron, 'empacotado =', app.isPackaged, JSON.stringify(cfg));
     history = store.loadHistory();
     if (store.hasTemplates()) {
       templates = store.loadTemplates();
@@ -528,4 +571,5 @@ if (!app.requestSingleInstanceLock()) {
     /* app de bandeja: continua rodando */
   });
   app.on('will-quit', () => globalShortcut.unregisterAll());
+  process.on('uncaughtException', (err) => log('uncaughtException', err));
 }
