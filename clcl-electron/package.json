@@ -1,0 +1,44 @@
+{
+  "name": "clcl-electron",
+  "version": "0.1.0",
+  "description": "Clipboard manager inspirado no CLCL (macOS/Windows)",
+  "main": "dist/main.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "tsc -p . && electron .",
+    "import-check": "tsc -p . && node dist/import-check.js",
+    "pack": "tsc -p . && electron-builder --dir",
+    "install-mac": "bash scripts/install-mac.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^39.2.7",
+    "typescript": "^5.6.0",
+    "electron-builder": "^26.0.12"
+  },
+  "productName": "CLCL",
+  "author": "Rodrigo Stefanski",
+  "build": {
+    "appId": "net.robotizze.clcl",
+    "productName": "CLCL",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": "dir",
+      "identity": null,
+      "category": "public.app-category.utilities",
+      "extendInfo": {
+        "LSUIElement": true
+      }
+    },
+    "linux": {
+      "target": "dir"
+    }
+  }
+}

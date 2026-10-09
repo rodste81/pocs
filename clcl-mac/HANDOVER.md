@@ -3,6 +3,8 @@
 > Para o Claude (Cowork ou Claude Code local) que vai continuar este trabalho na máquina do usuário.
 > Repositório `rodste81/pocs`, branch `claude/upbeat-wright-n399b8`. Faça `git pull` nela antes de começar.
 
+> **Atualização 2026-10-09:** o app já existe em `clcl-electron/`. O estado atual está em `clcl-electron/HANDOVER.md`.
+
 ## Objetivo
 
 O usuário (Rodrigo) usava o **CLCL**, um clipboard manager antigo para Windows, e quer um equivalente para **macOS**.

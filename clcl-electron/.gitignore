@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.dat
+templates.json
+history.json
+release/
