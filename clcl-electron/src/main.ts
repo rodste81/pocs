@@ -117,12 +117,14 @@ function copyAsFileIfFinder(source: string): Promise<boolean> {
   }
   const script = [
     'on run argv',
-    'tell application "System Events" to set front to bundle identifier of first application process whose frontmost is true',
-    'if front is "com.apple.finder" then',
+    'tell application "System Events"',
+    'set frontAppId to bundle identifier of (first application process whose frontmost is true)',
+    'end tell',
+    'if frontAppId is "com.apple.finder" then',
     'set the clipboard to (POSIX file (item 1 of argv))',
     'return "file"',
     'end if',
-    'return front',
+    'return frontAppId',
     'end run',
   ];
   return new Promise((resolve) => {
