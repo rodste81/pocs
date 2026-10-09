@@ -1,0 +1,7 @@
+EXETYPE WINDOWS
+
+EXPORTS
+	get_tool_info_w
+
+	tree_history
+	tree_history_property

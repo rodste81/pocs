@@ -1,0 +1,27 @@
+EXETYPE WINDOWS
+
+EXPORTS
+	get_format_header
+
+	meta_show_property
+	meta_initialize
+	meta_get_icon
+	meta_free
+	meta_initialize_item
+	meta_copy_data
+	meta_data_to_bytes
+	meta_bytes_to_data
+	meta_get_file_info
+	meta_data_to_file
+	meta_file_to_data
+	meta_free_data
+	meta_free_item
+	meta_get_menu_title
+	meta_get_menu_icon
+	meta_get_menu_bitmap
+	meta_get_tooltip_text
+	meta_window_create
+	meta_window_destroy
+	meta_window_show_data
+	meta_window_save_data
+	meta_window_hide_data

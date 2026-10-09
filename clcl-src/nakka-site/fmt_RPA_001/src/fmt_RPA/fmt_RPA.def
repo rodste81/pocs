@@ -1,0 +1,27 @@
+EXETYPE WINDOWS
+
+EXPORTS
+	get_format_header
+
+	rpa_show_property
+	rpa_initialize
+	rpa_get_icon
+	rpa_free
+	rpa_initialize_item
+	rpa_copy_data
+	rpa_data_to_bytes
+	rpa_bytes_to_data
+	rpa_get_file_info
+	rpa_data_to_file
+	rpa_file_to_data
+	rpa_free_data
+	rpa_free_item
+	rpa_get_menu_title
+	rpa_get_menu_icon
+	rpa_get_menu_bitmap
+	rpa_get_tooltip_text
+	rpa_window_create
+	rpa_window_destroy
+	rpa_window_show_data
+	rpa_window_save_data
+	rpa_window_hide_data

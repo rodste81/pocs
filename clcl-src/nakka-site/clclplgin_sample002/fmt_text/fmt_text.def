@@ -1,0 +1,27 @@
+EXETYPE WINDOWS
+
+EXPORTS
+	get_format_header
+
+	text_show_property
+	text_initialize
+	text_get_icon
+	text_free
+	text_initialize_item
+	text_copy_data
+	text_data_to_bytes
+	text_bytes_to_data
+	text_get_file_info
+	text_data_to_file
+	text_file_to_data
+	text_free_data
+	text_free_item
+	text_get_menu_title
+	text_get_menu_icon
+	text_get_menu_bitmap
+	text_get_tooltip_text
+	text_window_create
+	text_window_destroy
+	text_window_show_data
+	text_window_save_data
+	text_window_hide_data
