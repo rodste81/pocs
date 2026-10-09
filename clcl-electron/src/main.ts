@@ -14,6 +14,7 @@ import {
   Tray,
 } from 'electron';
 import { execFile } from 'child_process';
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -28,11 +29,14 @@ const ICON_PNG =
 
 let cfg: store.Config;
 let templates: TemplateNode[] = [];
-let history: string[] = [];
+let history: store.HistoryEntry[] = [];
 let tray: Tray | undefined;
 let anchor: BrowserWindow | undefined;
 let templatesMenu: Menu | undefined; // cache: so reconstroi quando os templates mudam
 let lastSeen = '';
+let lastImageKey = '';
+let imageTick = 0;
+const thumbCache = new Map<string, Electron.NativeImage>();
 let ownWrite: string | undefined; // texto gravado por nos mesmos (template) -> nao vai para o historico
 let warnedAccessibility = false;
 
@@ -72,12 +76,26 @@ function sendPasteKey(): void {
 function useText(text: string, copyOnly: boolean, fromTemplate: boolean): void {
   if (fromTemplate) ownWrite = text;
   clipboard.writeText(text);
+  pasteIfAllowed(copyOnly);
+}
+
+function useImage(entry: store.HistoryImage, copyOnly: boolean): void {
+  const img = nativeImage.createFromPath(path.join(store.imagesDir(), entry.image));
+  if (img.isEmpty()) {
+    notify('O arquivo dessa imagem não existe mais.');
+    return;
+  }
+  clipboard.writeImage(img);
+  pasteIfAllowed(copyOnly);
+}
+
+function pasteIfAllowed(copyOnly: boolean): void {
   if (copyOnly || !cfg.autoPaste) return;
   if (!canPaste()) {
     if (isMac && !warnedAccessibility) {
       warnedAccessibility = true;
       systemPreferences.isTrustedAccessibilityClient(true); // abre o pedido do macOS
-      notify('Texto copiado. Para colar sozinho, libere o app em Ajustes > Privacidade e Segurança > Acessibilidade.');
+      notify('Copiado. Para colar sozinho, libere o app em Ajustes > Privacidade e Segurança > Acessibilidade.');
     }
     return;
   }
@@ -97,25 +115,101 @@ function isConcealed(): boolean {
   }
 }
 
+const thumbFile = (e: store.HistoryImage): string => path.join(store.imagesDir(), `${e.image}.thumb.png`);
+
+function removeImageFiles(e: store.HistoryEntry): void {
+  if (typeof e === 'string') return;
+  thumbCache.delete(e.image);
+  for (const f of [path.join(store.imagesDir(), e.image), thumbFile(e)]) {
+    try {
+      fs.unlinkSync(f);
+    } catch {
+      /* ja nao existe */
+    }
+  }
+}
+
+// Miniatura para o menu, na altura de config.json > menuImageHeight.
+function menuThumb(e: store.HistoryImage): Electron.NativeImage | undefined {
+  let img = thumbCache.get(e.image);
+  if (!img) {
+    const h = Math.min(store.THUMB_MAX, Math.max(16, Math.round(cfg.menuImageHeight) || 48));
+    const src = nativeImage.createFromPath(thumbFile(e));
+    if (src.isEmpty()) return undefined;
+    img = src.getSize().height > h ? src.resize({ height: h, quality: 'good' }) : src;
+    thumbCache.set(e.image, img);
+  }
+  return img;
+}
+
+function pushHistory(entry: store.HistoryEntry): void {
+  history.unshift(entry);
+  for (const old of history.splice(cfg.historyMax)) removeImageFiles(old);
+  store.saveHistory(history);
+}
+
+// Imagens (ex.: screenshot com Cmd+Ctrl+Shift+4). Verificado ~1x por segundo,
+// porque ler a imagem do clipboard custa mais do que ler texto.
+function pollImage(): void {
+  if (!clipboard.availableFormats().some((f) => f.startsWith('image/'))) {
+    lastImageKey = '';
+    return;
+  }
+  const img = clipboard.readImage();
+  if (img.isEmpty()) return;
+  const { width, height } = img.getSize();
+  const small = img.resize({ width: 48, quality: 'good' }).toBitmap();
+  const key = `${width}x${height}-${createHash('sha1').update(small).digest('hex')}`;
+  if (key === lastImageKey) return;
+  lastImageKey = key;
+  if (isConcealed()) return;
+  const dup = history.findIndex((e) => typeof e !== 'string' && e.key === key);
+  if (dup === 0) return;
+  if (dup > 0) {
+    history.unshift(history.splice(dup, 1)[0]); // mesma imagem: so sobe para o topo
+    store.saveHistory(history);
+    return;
+  }
+  const entry: store.HistoryImage = { image: `${Date.now()}.png`, key, width, height };
+  fs.mkdirSync(store.imagesDir(), { recursive: true });
+  fs.writeFileSync(path.join(store.imagesDir(), entry.image), img.toPNG(), { mode: 0o600 });
+  const thumb = height > store.THUMB_MAX ? img.resize({ height: store.THUMB_MAX, quality: 'good' }) : img;
+  fs.writeFileSync(thumbFile(entry), thumb.toPNG(), { mode: 0o600 });
+  pushHistory(entry);
+}
+
 function pollClipboard(): void {
   const text = clipboard.readText();
+  if (!text) {
+    lastSeen = '';
+    if (imageTick++ % 3 === 0) pollImage();
+    return;
+  }
+  lastImageKey = '';
   if (text === lastSeen) return;
   lastSeen = text;
   if (text === ownWrite) return;
   ownWrite = undefined;
   if (!text.trim() || isConcealed()) return;
   if (history[0] === text) return; // duplicata modo 1 do CLCL: igual ao ultimo item
-  history.unshift(text);
-  if (history.length > cfg.historyMax) history.length = cfg.historyMax;
-  store.saveHistory(history);
+  pushHistory(text);
 }
 
 function buildHistoryMenu(): Menu {
-  const items: MenuItemConstructorOptions[] = history.map((text, i) => ({
-    label: `${i + 1}. ${label(text)}`,
-    toolTip: tooltip(text),
-    click: (_item, _win, ev) => useText(text, !!ev.shiftKey, false),
-  }));
+  const items: MenuItemConstructorOptions[] = history.map((e, i): MenuItemConstructorOptions => {
+    if (typeof e === 'string') {
+      return {
+        label: `${i + 1}. ${label(e)}`,
+        toolTip: tooltip(e),
+        click: (_item, _win, ev) => useText(e, !!ev.shiftKey, false),
+      };
+    }
+    return {
+      label: `${i + 1}. [Imagem ${e.width}×${e.height}]`,
+      icon: menuThumb(e),
+      click: (_item, _win, ev) => useImage(e, !!ev.shiftKey),
+    };
+  });
   if (!items.length) items.push({ label: '(histórico vazio)', enabled: false });
   items.push(
     { type: 'separator' },
@@ -123,6 +217,7 @@ function buildHistoryMenu(): Menu {
       label: 'Limpar histórico',
       enabled: history.length > 0,
       click: () => {
+        history.forEach(removeImageFiles);
         history = [];
         store.saveHistory(history);
       },

@@ -9,6 +9,7 @@ export interface Config {
   historyMax: number;
   pollMs: number;
   autoPaste: boolean;
+  menuImageHeight: number; // altura (px) da miniatura das imagens no menu, de 16 a 256
   registPath: string; // regist.dat usado na primeira carga
 }
 
@@ -18,6 +19,7 @@ const defaults: Config = {
   historyMax: 30,
   pollMs: 300,
   autoPaste: true,
+  menuImageHeight: 48,
   registPath: '',
 };
 
@@ -47,12 +49,23 @@ export const paths = {
 export function loadConfig(): Config {
   const saved = readJson<Partial<Config>>('config.json');
   const cfg = { ...defaults, ...(saved ?? {}) };
-  if (!saved) writeJson('config.json', cfg);
+  if (!saved || Object.keys(defaults).some((k) => !(k in saved))) writeJson('config.json', cfg);
   return cfg;
 }
 
 export const hasTemplates = (): boolean => fs.existsSync(file('templates.json'));
 export const loadTemplates = (): TemplateNode[] => readJson<TemplateNode[]>('templates.json') ?? [];
 export const saveTemplates = (root: TemplateNode[]): void => writeJson('templates.json', root);
-export const loadHistory = (): string[] => readJson<string[]>('history.json') ?? [];
-export const saveHistory = (items: string[]): void => writeJson('history.json', items);
+// Item do historico: texto puro ou imagem (PNG gravado em images/).
+export interface HistoryImage {
+  image: string; // nome do arquivo em images/ (a miniatura e <nome>.thumb.png)
+  key: string; // assinatura para detectar duplicata
+  width: number;
+  height: number;
+}
+export type HistoryEntry = string | HistoryImage;
+
+export const THUMB_MAX = 256; // altura maxima da miniatura gravada
+export const imagesDir = (): string => file('images');
+export const loadHistory = (): HistoryEntry[] => readJson<HistoryEntry[]>('history.json') ?? [];
+export const saveHistory = (items: HistoryEntry[]): void => writeJson('history.json', items);

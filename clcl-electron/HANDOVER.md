@@ -35,7 +35,8 @@ A assinatura é ad-hoc: a cada reinstalação o macOS pede a permissão de Acess
 
 ## Pendências
 
-- Só texto: imagens, arquivos e RTF não entram no histórico.
+- Histórico guarda texto e imagens (PNG em `images/`, ex.: screenshot com ⌘⌃⇧4); a altura da miniatura no menu é `menuImageHeight` em `config.json` (16 a 256, padrão 48). Arquivos copiados e RTF não entram; itens salvos (Control+Q) são só texto.
+- Sem busca: o menu nativo só tem o type-select do macOS (digitar o começo do rótulo).
 - Editar, renomear, mover e apagar itens salvos: hoje só editando `templates.json` e usando "Recarregar itens salvos do arquivo".
 - Expansão de `%d` / `%t` (port do `tool_text`); 96 itens importados contêm esses padrões.
 - Ícone próprio do app e assinatura com Developer ID (hoje é ad-hoc).
