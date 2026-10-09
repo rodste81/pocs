@@ -19,6 +19,7 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as icons from './icons';
 import { parseRegist } from './regist';
 import * as store from './store';
 import { TemplateFolder, TemplateNode } from './types';
@@ -247,6 +248,18 @@ function buildHistoryMenu(): Menu {
 
 // ---------- templates (menu dos itens salvos) ----------
 
+function menuIcon(x1: string, x2: string): Electron.NativeImage {
+  const img = nativeImage.createEmpty();
+  img.addRepresentation({ scaleFactor: 1, width: 16, height: 16, buffer: Buffer.from(x1, 'base64') });
+  img.addRepresentation({ scaleFactor: 2, width: 32, height: 32, buffer: Buffer.from(x2, 'base64') });
+  img.setTemplateImage(true);
+  return img;
+}
+let folderIcon: Electron.NativeImage | undefined;
+let itemIcon: Electron.NativeImage | undefined;
+const getFolderIcon = (): Electron.NativeImage => (folderIcon ??= menuIcon(icons.FOLDER_1X, icons.FOLDER_2X));
+const getItemIcon = (): Electron.NativeImage => (itemIcon ??= menuIcon(icons.DOC_1X, icons.DOC_2X));
+
 function setTemplates(root: TemplateNode[]): void {
   templates = root;
   templatesMenu = undefined;
@@ -267,10 +280,15 @@ function templateEntries(nodes: TemplateNode[]): MenuItemConstructorOptions[] {
   return nodes.map((n): MenuItemConstructorOptions => {
     if (n.type === 'folder') {
       const sub = templateEntries(n.children);
-      return { label: label('', n.title || '(sem nome)'), submenu: sub.length ? sub : [{ label: '(vazia)', enabled: false }] };
+      return {
+        label: label('', n.title || '(sem nome)'),
+        icon: getFolderIcon(),
+        submenu: sub.length ? sub : [{ label: '(vazia)', enabled: false }],
+      };
     }
     return {
       label: label(n.text, n.title),
+      icon: getItemIcon(),
       toolTip: tooltip(n.text),
       click: (_item, _win, ev) => useText(n.text, !!ev.shiftKey, true),
     };
@@ -281,7 +299,9 @@ function saveTargets(nodes: TemplateNode[]): MenuItemConstructorOptions[] {
   const folders = nodes.filter((n): n is TemplateFolder => n.type === 'folder');
   const out: MenuItemConstructorOptions[] = [{ label: 'Salvar aqui', click: () => saveClipboardInto(nodes) }];
   if (folders.length) out.push({ type: 'separator' });
-  for (const f of folders) out.push({ label: label('', f.title || '(sem nome)'), submenu: saveTargets(f.children) });
+  for (const f of folders) {
+    out.push({ label: label('', f.title || '(sem nome)'), icon: getFolderIcon(), submenu: saveTargets(f.children) });
+  }
   return out;
 }
 
