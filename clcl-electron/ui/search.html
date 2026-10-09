@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>CLCL — busca</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --line: #d9d9d4; --text: #1c1c1a; --dim: #6d6d66;
+    --sel: #1f5fbf; --sel-text: #ffffff; --mark: #ffe58a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1f1e; --panel: #2a2a28; --line: #3d3d3a; --text: #ecece8; --dim: #a0a098;
+      --sel: #2f6fd6; --sel-text: #ffffff; --mark: #7a6312;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 13px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  #q {
+    font: inherit; font-size: 17px; padding: 12px 14px; border: 0; outline: 0;
+    background: var(--panel); color: var(--text); border-bottom: 1px solid var(--line);
+    border-radius: 10px 10px 0 0;
+  }
+  #main { flex: 1; display: flex; min-height: 0; }
+  #list { width: 46%; overflow-y: auto; border-right: 1px solid var(--line); }
+  .row { padding: 6px 12px; cursor: default; border-bottom: 1px solid var(--line); }
+  .row .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .p { color: var(--dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row.sel { background: var(--sel); color: var(--sel-text); }
+  .row.sel .p { color: var(--sel-text); opacity: .8; }
+  #preview {
+    flex: 1; margin: 0; padding: 10px 12px; overflow: auto; background: var(--panel);
+    font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word;
+  }
+  #preview mark { background: var(--mark); color: inherit; }
+  #foot {
+    padding: 5px 12px; color: var(--dim); font-size: 11px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; gap: 12px;
+  }
+  .empty { padding: 16px 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+<input id="q" type="text" placeholder="Buscar nos itens salvos e no clipboard…" autocomplete="off" spellcheck="false" autofocus>
+<div id="main">
+  <div id="list"></div>
+  <pre id="preview"></pre>
+</div>
+<div id="foot">
+  <span id="count"></span>
+  <span>↑↓ escolher · Enter colar · Shift+Enter só copiar · Esc fechar</span>
+</div>
+<script>
+const MAX_ROWS = 200;
+const PREVIEW_MAX = 6000;
+const q = document.getElementById('q');
+const list = document.getElementById('list');
+const preview = document.getElementById('preview');
+const count = document.getElementById('count');
+let items = [];   // { id, source, path, label, text, hay, hayLabel }
+let shown = [];
+let sel = 0;
+
+// minusculas e sem acento, para "execucao" achar "execução"
+const fold = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+async function load() {
+  const raw = await window.clcl.getItems();
+  items = raw.map((it) => ({
+    ...it,
+    hayLabel: fold(it.label + ' ' + it.path),
+    hay: fold(it.label + ' ' + it.path + ' ' + it.text),
+  }));
+  q.value = '';
+  search();
+  q.focus();
+}
+
+function search() {
+  const terms = fold(q.value).split(/\s+/).filter(Boolean);
+  let found;
+  if (!terms.length) {
+    found = items.slice();
+  } else {
+    found = [];
+    for (const it of items) {
+      if (!terms.every((t) => it.hay.includes(t))) continue;
+      // itens que casam pelo titulo/pasta vem antes dos que so casam pelo conteudo
+      found.push({ it, score: terms.every((t) => it.hayLabel.includes(t)) ? 0 : 1 });
+    }
+    found.sort((a, b) => a.score - b.score);
+    found = found.map((f) => f.it);
+  }
+  const total = found.length;
+  shown = found.slice(0, MAX_ROWS);
+  sel = 0;
+  render(total);
+}
+
+function render(total) {
+  list.textContent = '';
+  if (!shown.length) {
+    const d = document.createElement('div');
+    d.className = 'empty';
+    d.textContent = items.length ? 'Nada encontrado.' : 'Nenhum item para buscar.';
+    list.appendChild(d);
+  }
+  shown.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'row' + (i === sel ? ' sel' : '');
+    const t = document.createElement('div');
+    t.className = 't';
+    t.textContent = it.label;
+    const p = document.createElement('div');
+    p.className = 'p';
+    p.textContent = it.path;
+    row.append(t, p);
+    row.addEventListener('mousemove', () => select(i, false));
+    row.addEventListener('click', (ev) => choose(ev.shiftKey));
+    list.appendChild(row);
+  });
+  count.textContent = total > shown.length
+    ? `${total} resultados (mostrando ${shown.length})`
+    : `${total} ${total === 1 ? 'resultado' : 'resultados'}`;
+  showPreview();
+}
+
+function select(i, scroll) {
+  if (i < 0 || i >= shown.length || i === sel) return;
+  list.children[sel]?.classList.remove('sel');
+  sel = i;
+  const row = list.children[sel];
+  row.classList.add('sel');
+  if (scroll) row.scrollIntoView({ block: 'nearest' });
+  showPreview();
+}
+
+function showPreview() {
+  preview.textContent = '';
+  const it = shown[sel];
+  if (!it) return;
+  let text = it.text.length > PREVIEW_MAX ? it.text.slice(0, PREVIEW_MAX) + '\n…' : it.text;
+  const terms = fold(q.value).split(/\s+/).filter(Boolean);
+  // realce simples: so quando tirar o acento nao muda o tamanho do texto
+  const folded = fold(text);
+  if (!terms.length || folded.length !== text.length) {
+    preview.textContent = text;
+    return;
+  }
+  const marks = [];
+  for (const t of terms) {
+    let at = folded.indexOf(t);
+    while (at !== -1 && marks.length < 500) {
+      marks.push([at, at + t.length]);
+      at = folded.indexOf(t, at + t.length);
+    }
+  }
+  marks.sort((a, b) => a[0] - b[0]);
+  let pos = 0;
+  for (const [a, b] of marks) {
+    if (a < pos) continue;
+    preview.append(text.slice(pos, a));
+    const m = document.createElement('mark');
+    m.textContent = text.slice(a, b);
+    preview.append(m);
+    pos = b;
+  }
+  preview.append(text.slice(pos));
+  preview.querySelector('mark')?.scrollIntoView({ block: 'center' });
+}
+
+function choose(copyOnly) {
+  const it = shown[sel];
+  if (it) window.clcl.choose(it.id, !!copyOnly);
+}
+
+q.addEventListener('input', search);
+window.addEventListener('keydown', (ev) => {
+  if (ev.key === 'ArrowDown') { select(Math.min(sel + 1, shown.length - 1), true); ev.preventDefault(); }
+  else if (ev.key === 'ArrowUp') { select(Math.max(sel - 1, 0), true); ev.preventDefault(); }
+  else if (ev.key === 'PageDown') { select(Math.min(sel + 10, shown.length - 1), true); ev.preventDefault(); }
+  else if (ev.key === 'PageUp') { select(Math.max(sel - 10, 0), true); ev.preventDefault(); }
+  else if (ev.key === 'Enter') { choose(ev.shiftKey); ev.preventDefault(); }
+  else if (ev.key === 'Escape') { window.clcl.close(); ev.preventDefault(); }
+});
+window.clcl.onShow(load);
+load();
+</script>
+</body>
+</html>

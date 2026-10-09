@@ -4,12 +4,13 @@ Continuação de `clcl-mac/HANDOVER.md` (repo `rodste81/pocs`, branch `claude/up
 
 ## Estado atual
 
-App Electron + TypeScript só com processo principal (sem renderer): bandeja, dois atalhos globais e menus nativos.
+App Electron + TypeScript: bandeja, três atalhos globais, menus nativos e uma janela de busca (único renderer, HTML/JS puro em `ui/`).
 
 | Atalho | Menu |
 |---|---|
 | `Control+Q` | Itens salvos (a árvore importada do `regist.dat` + o que o usuário for salvando) |
 | `Control+W` | Clipboard (histórico, 30 itens) |
+| `Control+E` | Janela de busca (`ui/search.html`): filtra título, pasta e conteúdo dos itens salvos e dos textos do clipboard; Enter cola, Shift+Enter só copia |
 
 - `src/regist.ts`: importador do `regist.dat` (port de `File.c: file_file_to_item`). Usa `UNICODE TEXT` (UTF-16LE) quando existe, senão `TEXT` (windows-1252). Converte CRLF em LF. A pasta-raiz única (`Top_Clips`) vira o nível de cima do menu.
 - `src/main.ts`: bandeja, atalhos, polling do clipboard (300 ms), menus, colar com ⌘V via `osascript`.
@@ -31,12 +32,11 @@ A assinatura é ad-hoc: a cada reinstalação o macOS pede a permissão de Acess
 ## Testado / não testado
 
 - Testado no Linux (headless): compilação, importação do `regist.dat` real, inicialização sem erro, empacotamento (`npm run pack`).
-- **Não testado no macOS**: o popup do menu na posição do cursor (janela-âncora 1x1 com `showInactive`), o ⌘V automático (precisa de Acessibilidade) e os atalhos `Control+Q` / `Control+W` e o `scripts/install-mac.sh`.
+- **Não testado no macOS**: o popup do menu na posição do cursor (janela-âncora 1x1 com `showInactive`), o ⌘V automático (precisa de Acessibilidade) e os atalhos `Control+Q` / `Control+W` / `Control+E`, o foco da janela de busca (abre, e ao fechar devolve o foco com `app.hide()`) e o `scripts/install-mac.sh`.
 
 ## Pendências
 
 - Histórico guarda texto e imagens (PNG em `images/`, ex.: screenshot com ⌘⌃⇧4); a altura da miniatura no menu é `menuImageHeight` em `config.json` (16 a 256, padrão 48). Arquivos copiados e RTF não entram; itens salvos (Control+Q) são só texto.
-- Sem busca: o menu nativo só tem o type-select do macOS (digitar o começo do rótulo).
 - Editar, renomear, mover e apagar itens salvos: hoje só editando `templates.json` e usando "Recarregar itens salvos do arquivo".
 - Expansão de `%d` / `%t` (port do `tool_text`); 96 itens importados contêm esses padrões.
 - Ícone próprio do app e assinatura com Developer ID (hoje é ad-hoc).

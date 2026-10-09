@@ -6,6 +6,7 @@ import { TemplateNode } from './types';
 export interface Config {
   hotkeyTemplates: string; // menu dos itens salvos
   hotkeyHistory: string; // menu do clipboard (historico)
+  hotkeySearch: string; // janela de busca
   historyMax: number;
   pollMs: number;
   autoPaste: boolean;
@@ -16,6 +17,7 @@ export interface Config {
 const defaults: Config = {
   hotkeyTemplates: 'Control+Q',
   hotkeyHistory: 'Control+W',
+  hotkeySearch: 'Control+E',
   historyMax: 30,
   pollMs: 300,
   autoPaste: true,

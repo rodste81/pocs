@@ -4,6 +4,7 @@ import {
   clipboard,
   dialog,
   globalShortcut,
+  ipcMain,
   Menu,
   MenuItemConstructorOptions,
   nativeImage,
@@ -32,6 +33,8 @@ let templates: TemplateNode[] = [];
 let history: store.HistoryEntry[] = [];
 let tray: Tray | undefined;
 let anchor: BrowserWindow | undefined;
+let searchWin: BrowserWindow | undefined;
+let searchIndex: { text: string; fromTemplate: boolean }[] = [];
 let templatesMenu: Menu | undefined; // cache: so reconstroi quando os templates mudam
 let lastSeen = '';
 let lastImageKey = '';
@@ -73,10 +76,10 @@ function sendPasteKey(): void {
 }
 
 // Copia o texto e, se der, cola na janela que estava em foco. Shift = so copiar.
-function useText(text: string, copyOnly: boolean, fromTemplate: boolean): void {
+function useText(text: string, copyOnly: boolean, fromTemplate: boolean, pasteDelay = 120): void {
   if (fromTemplate) ownWrite = text;
   clipboard.writeText(text);
-  pasteIfAllowed(copyOnly);
+  pasteIfAllowed(copyOnly, pasteDelay);
 }
 
 function useImage(entry: store.HistoryImage, copyOnly: boolean): void {
@@ -89,7 +92,7 @@ function useImage(entry: store.HistoryImage, copyOnly: boolean): void {
   pasteIfAllowed(copyOnly);
 }
 
-function pasteIfAllowed(copyOnly: boolean): void {
+function pasteIfAllowed(copyOnly: boolean, delay = 120): void {
   if (copyOnly || !cfg.autoPaste) return;
   if (!canPaste()) {
     if (isMac && !warnedAccessibility) {
@@ -99,7 +102,7 @@ function pasteIfAllowed(copyOnly: boolean): void {
     }
     return;
   }
-  setTimeout(sendPasteKey, 120);
+  setTimeout(sendPasteKey, delay);
 }
 
 // ---------- historico (menu do clipboard) ----------
@@ -280,6 +283,92 @@ function buildTemplatesMenu(): Menu {
   return templatesMenu;
 }
 
+// ---------- busca (janela) ----------
+
+interface SearchItem {
+  id: number;
+  path: string;
+  label: string;
+  text: string;
+}
+
+// Lista plana de tudo que tem texto: primeiro o clipboard, depois os itens salvos.
+function buildSearchItems(): SearchItem[] {
+  const out: SearchItem[] = [];
+  searchIndex = [];
+  const add = (text: string, title: string, where: string, fromTemplate: boolean): void => {
+    out.push({ id: searchIndex.length, path: where, label: label(text, title).replace(/&&/g, '&'), text });
+    searchIndex.push({ text, fromTemplate });
+  };
+  for (const e of history) if (typeof e === 'string') add(e, '', 'Clipboard', false);
+  const walk = (nodes: TemplateNode[], trail: string[]): void => {
+    for (const n of nodes) {
+      if (n.type === 'folder') walk(n.children, [...trail, n.title || '(sem nome)']);
+      else add(n.text, n.title, ['Salvos', ...trail].join(' › '), true);
+    }
+  };
+  walk(templates, []);
+  return out;
+}
+
+function hideSearch(returnFocus: boolean): void {
+  if (!searchWin || searchWin.isDestroyed() || !searchWin.isVisible()) return;
+  searchWin.hide();
+  if (returnFocus && isMac) app.hide(); // devolve o foco ao app que estava na frente
+}
+
+function createSearchWindow(): void {
+  searchWin = new BrowserWindow({
+    width: 760,
+    height: 460,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'ui', 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  searchWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  void searchWin.loadFile(path.join(__dirname, '..', 'ui', 'search.html'));
+  searchWin.on('blur', () => hideSearch(false));
+  searchWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  searchWin.webContents.on('will-navigate', (ev) => ev.preventDefault());
+}
+
+function toggleSearch(): void {
+  if (!searchWin || searchWin.isDestroyed()) createSearchWindow();
+  const win = searchWin!;
+  if (win.isVisible()) {
+    hideSearch(true);
+    return;
+  }
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  const [w, h] = win.getSize();
+  win.setPosition(Math.round(area.x + (area.width - w) / 2), Math.round(area.y + (area.height - h) / 3));
+  win.show();
+  win.focus();
+  win.webContents.send('search:show');
+}
+
+function registerSearchIpc(): void {
+  ipcMain.handle('search:items', () => buildSearchItems());
+  ipcMain.on('search:close', () => hideSearch(true));
+  ipcMain.on('search:choose', (_ev, id: unknown, copyOnly: unknown) => {
+    const hit = typeof id === 'number' ? searchIndex[id] : undefined;
+    hideSearch(true);
+    if (hit) useText(hit.text, copyOnly === true, hit.fromTemplate, 250);
+  });
+}
+
 // ---------- importacao do regist.dat ----------
 
 function registCandidates(): string[] {
@@ -359,11 +448,12 @@ function createTray(): void {
   } else {
     tray = new Tray(nativeImage.createFromDataURL(ICON_PNG));
   }
-  tray.setToolTip(`CLCL — salvos: ${cfg.hotkeyTemplates} · clipboard: ${cfg.hotkeyHistory}`);
+  tray.setToolTip(`CLCL — salvos: ${cfg.hotkeyTemplates} · clipboard: ${cfg.hotkeyHistory} · busca: ${cfg.hotkeySearch}`);
   const showMenu = (): void => {
     const menu = Menu.buildFromTemplate([
       { label: `Itens salvos (${cfg.hotkeyTemplates})`, click: () => popupAtCursor(buildTemplatesMenu()) },
       { label: `Clipboard (${cfg.hotkeyHistory})`, click: () => popupAtCursor(buildHistoryMenu()) },
+      { label: `Buscar… (${cfg.hotkeySearch})`, click: toggleSearch },
       { type: 'separator' },
       { label: 'Importar regist.dat…', click: () => void importDialog() },
       {
@@ -403,6 +493,7 @@ function registerHotkeys(): void {
   };
   reg(cfg.hotkeyTemplates, () => popupAtCursor(buildTemplatesMenu()));
   reg(cfg.hotkeyHistory, () => popupAtCursor(buildHistoryMenu()));
+  reg(cfg.hotkeySearch, toggleSearch);
   if (failed.length) notify(`Não consegui registrar o atalho: ${failed.join(', ')}. Ajuste em config.json.`);
 }
 
@@ -425,6 +516,8 @@ if (!app.requestSingleInstanceLock()) {
     }
     lastSeen = clipboard.readText();
     createAnchor();
+    registerSearchIpc();
+    createSearchWindow();
     createTray();
     registerHotkeys();
     buildTemplatesMenu();
