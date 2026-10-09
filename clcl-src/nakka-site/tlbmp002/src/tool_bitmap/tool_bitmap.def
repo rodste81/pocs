@@ -1,0 +1,7 @@
+EXETYPE WINDOWS
+
+EXPORTS
+	get_tool_info_w
+
+	edit_bitmap
+	edit_bitmap_property

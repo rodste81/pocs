@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29418.71
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fmt_RPA", "fmt_RPA\fmt_RPA.vcxproj", "{9980103D-3807-4DA9-BD82-83EA18382258}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9980103D-3807-4DA9-BD82-83EA18382258}.Debug|x64.ActiveCfg = Debug|x64
+		{9980103D-3807-4DA9-BD82-83EA18382258}.Debug|x64.Build.0 = Debug|x64
+		{9980103D-3807-4DA9-BD82-83EA18382258}.Debug|x86.ActiveCfg = Debug|Win32
+		{9980103D-3807-4DA9-BD82-83EA18382258}.Debug|x86.Build.0 = Debug|Win32
+		{9980103D-3807-4DA9-BD82-83EA18382258}.Release|x64.ActiveCfg = Release|x64
+		{9980103D-3807-4DA9-BD82-83EA18382258}.Release|x64.Build.0 = Release|x64
+		{9980103D-3807-4DA9-BD82-83EA18382258}.Release|x86.ActiveCfg = Release|Win32
+		{9980103D-3807-4DA9-BD82-83EA18382258}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B404E014-4916-44F0-8BF0-C386DC88C915}
+	EndGlobalSection
+EndGlobal
