@@ -41,11 +41,18 @@ rm -rf "$DEST/CLCL.app"
 ditto "$APP" "$DEST/CLCL.app"
 rm -rf "$OUT"
 
+# A assinatura ad-hoc muda a cada build, e o macOS trata o app como outro: a
+# permissao antiga fica na lista, ligada, mas nao vale mais. Zera para pedir de novo.
+step "Zerando as permissoes antigas do CLCL (Acessibilidade e Automacao)"
+tccutil reset Accessibility net.robotizze.clcl >/dev/null 2>&1 || true
+tccutil reset AppleEvents net.robotizze.clcl >/dev/null 2>&1 || true
+
 step "Abrindo"
 open "$DEST/CLCL.app"
 sleep 2
 if pgrep -x CLCL >/dev/null; then
   echo "OK: CLCL instalado em $DEST/CLCL.app e rodando (procure CLCL na barra de menus)."
+  echo "Libere o CLCL em Ajustes > Privacidade e Seguranca > Acessibilidade (uma vez por instalacao)."
 else
   echo "*** O CLCL foi copiado para $DEST, mas nao ficou rodando. ***" >&2
   exit 1
