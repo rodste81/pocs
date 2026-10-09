@@ -3,21 +3,50 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-npm install
-npm run pack
+step() { echo; echo "==> $*"; }
+trap 'echo; echo "*** FALHOU no passo acima. O CLCL NAO foi instalado. ***" >&2' ERR
 
-APP="$(find release -maxdepth 2 -name 'CLCL.app' | head -1)"
+step "Instalando dependencias"
+npm install
+
+step "Compilando"
+npm run build
+
+# O pacote e montado fora do iCloud: arquivos dentro do iCloud Drive ganham
+# atributos estendidos que fazem o codesign recusar o app.
+OUT="$(mktemp -d /tmp/clcl-build.XXXXXX)"
+step "Empacotando em $OUT"
+npx electron-builder --dir -c.directories.output="$OUT"
+
+APP="$(find "$OUT" -maxdepth 2 -name 'CLCL.app' | head -1)"
 if [ -z "$APP" ]; then
-  echo "CLCL.app nao foi gerado em release/" >&2
+  echo "CLCL.app nao foi gerado em $OUT" >&2
   exit 1
 fi
 
-# assinatura ad-hoc (obrigatoria em Apple Silicon; sem conta de desenvolvedor)
+step "Assinando (ad-hoc)"
+xattr -cr "$APP"
 codesign --force --deep --sign - "$APP"
+codesign --verify --deep "$APP"
 
-osascript -e 'tell application "CLCL" to quit' >/dev/null 2>&1 || true
+step "Fechando o CLCL que estiver aberto"
+osascript -e 'tell application id "net.robotizze.clcl" to quit' >/dev/null 2>&1 || true
+pkill -x CLCL >/dev/null 2>&1 || true
 sleep 1
-rm -rf /Applications/CLCL.app
-ditto "$APP" /Applications/CLCL.app
-open /Applications/CLCL.app
-echo "Instalado em /Applications/CLCL.app"
+
+DEST="/Applications"
+[ -w "$DEST" ] || { DEST="$HOME/Applications"; mkdir -p "$DEST"; }
+step "Copiando para $DEST/CLCL.app"
+rm -rf "$DEST/CLCL.app"
+ditto "$APP" "$DEST/CLCL.app"
+rm -rf "$OUT"
+
+step "Abrindo"
+open "$DEST/CLCL.app"
+sleep 2
+if pgrep -x CLCL >/dev/null; then
+  echo "OK: CLCL instalado em $DEST/CLCL.app e rodando (procure CLCL na barra de menus)."
+else
+  echo "*** O CLCL foi copiado para $DEST, mas nao ficou rodando. ***" >&2
+  exit 1
+fi
