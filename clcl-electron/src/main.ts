@@ -98,14 +98,57 @@ function useText(text: string, copyOnly: boolean, fromTemplate: boolean, pasteDe
   pasteIfAllowed(copyOnly, pasteDelay);
 }
 
-function useImage(entry: store.HistoryImage, copyOnly: boolean): void {
-  const img = nativeImage.createFromPath(path.join(store.imagesDir(), entry.image));
+const pasteTmpDir = (): string => path.join(os.tmpdir(), 'clcl-paste');
+
+// Se o Finder (uma pasta ou a mesa) esta na frente, poe no clipboard um ARQUIVO .png
+// em vez da imagem: assim o Cmd+V cria o arquivo na pasta. Devolve true se fez isso.
+function copyAsFileIfFinder(source: string): Promise<boolean> {
+  if (!isMac) return Promise.resolve(false);
+  const d = new Date();
+  const p2 = (n: number): string => String(n).padStart(2, '0');
+  const name = `Imagem ${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}.${p2(d.getMinutes())}.${p2(d.getSeconds())}.png`;
+  const target = path.join(pasteTmpDir(), name);
+  try {
+    fs.mkdirSync(pasteTmpDir(), { recursive: true });
+    fs.copyFileSync(source, target);
+  } catch (err) {
+    log('imagem como arquivo: falha ao copiar', err);
+    return Promise.resolve(false);
+  }
+  const script = [
+    'on run argv',
+    'tell application "System Events" to set front to bundle identifier of first application process whose frontmost is true',
+    'if front is "com.apple.finder" then',
+    'set the clipboard to (POSIX file (item 1 of argv))',
+    'return "file"',
+    'end if',
+    'return front',
+    'end run',
+  ];
+  return new Promise((resolve) => {
+    execFile('osascript', [...script.flatMap((l) => ['-e', l]), target], { timeout: 3000 }, (err, stdout) => {
+      const out = String(stdout).trim();
+      log('imagem: app na frente =', err ? `erro ${err.message}` : out);
+      resolve(!err && out === 'file');
+    });
+  });
+}
+
+async function useImage(entry: store.HistoryImage, copyOnly: boolean): Promise<void> {
+  const file = path.join(store.imagesDir(), entry.image);
+  const img = nativeImage.createFromPath(file);
   if (img.isEmpty()) {
     notify('O arquivo dessa imagem não existe mais.');
     return;
   }
-  clipboard.writeImage(img);
-  pasteIfAllowed(copyOnly);
+  if (await copyAsFileIfFinder(file)) {
+    // o clipboard agora tem um arquivo; o nome dele nao deve entrar no historico como texto
+    lastSeen = clipboard.readText();
+    ownWrite = lastSeen;
+  } else {
+    clipboard.writeImage(img);
+  }
+  pasteIfAllowed(copyOnly, 60);
 }
 
 function pasteIfAllowed(copyOnly: boolean, delay = 120): void {
@@ -174,6 +217,11 @@ function pollImage(): void {
     lastImageKey = '';
     return;
   }
+  try {
+    if (isMac && clipboard.has('public.file-url')) return; // arquivo copiado no Finder, nao uma imagem
+  } catch {
+    /* clipboard.has e experimental */
+  }
   const img = clipboard.readImage();
   if (img.isEmpty()) return;
   const { width, height } = img.getSize();
@@ -226,7 +274,7 @@ function buildHistoryMenu(): Menu {
     return {
       label: `${i + 1}. [Imagem ${e.width}×${e.height}]`,
       icon: menuThumb(e),
-      click: (_item, _win, ev) => useImage(e, !!ev.shiftKey),
+      click: (_item, _win, ev) => void useImage(e, !!ev.shiftKey),
     };
   });
   if (!items.length) items.push({ label: '(histórico vazio)', enabled: false });
@@ -577,6 +625,7 @@ if (!app.requestSingleInstanceLock()) {
       if (found) importRegist(found);
       else notify('Nenhum regist.dat encontrado. Use "Importar regist.dat…" no ícone da barra de menus.');
     }
+    fs.rmSync(pasteTmpDir(), { recursive: true, force: true });
     lastSeen = clipboard.readText();
     createAnchor();
     registerSearchIpc();
