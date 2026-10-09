@@ -35,9 +35,10 @@ let history: store.HistoryEntry[] = [];
 let tray: Tray | undefined;
 let anchor: BrowserWindow | undefined;
 let searchWin: BrowserWindow | undefined;
+let editorWin: BrowserWindow | undefined;
 let openMenu: Menu | undefined; // referencia viva enquanto o menu esta aberto (evita coleta pelo GC)
 let searchShownAt = 0;
-let searchIndex: { text: string; fromTemplate: boolean }[] = [];
+let searchIndex: { text: string; fromTemplate: boolean; loc?: number[] }[] = [];
 let templatesMenu: Menu | undefined; // cache: so reconstroi quando os templates mudam
 let lastSeen = '';
 let lastImageKey = '';
@@ -310,10 +311,12 @@ let itemIcon: Electron.NativeImage | undefined;
 const getFolderIcon = (): Electron.NativeImage => (folderIcon ??= menuIcon(icons.FOLDER_1X, icons.FOLDER_2X));
 const getItemIcon = (): Electron.NativeImage => (itemIcon ??= menuIcon(icons.DOC_1X, icons.DOC_2X));
 
-function setTemplates(root: TemplateNode[]): void {
+function setTemplates(root: TemplateNode[], fromEditor = false): void {
   templates = root;
   templatesMenu = undefined;
   store.saveTemplates(root);
+  // mudou por fora do editor (menu "Salvar clipboard", importacao): o editor recarrega
+  if (!fromEditor && editorWin && !editorWin.isDestroyed()) editorWin.webContents.send('editor:reload');
 }
 
 function saveClipboardInto(target: TemplateNode[]): void {
@@ -381,18 +384,18 @@ interface SearchItem {
 function buildSearchItems(): SearchItem[] {
   const out: SearchItem[] = [];
   searchIndex = [];
-  const add = (text: string, title: string, where: string, fromTemplate: boolean): void => {
+  const add = (text: string, title: string, where: string, fromTemplate: boolean, loc?: number[]): void => {
     out.push({ id: searchIndex.length, path: where, label: label(text, title).replace(/&&/g, '&'), text });
-    searchIndex.push({ text, fromTemplate });
+    searchIndex.push({ text, fromTemplate, loc });
   };
   for (const e of history) if (typeof e === 'string') add(e, '', 'Clipboard', false);
-  const walk = (nodes: TemplateNode[], trail: string[]): void => {
-    for (const n of nodes) {
-      if (n.type === 'folder') walk(n.children, [...trail, n.title || '(sem nome)']);
-      else add(n.text, n.title, ['Salvos', ...trail].join(' › '), true);
-    }
+  const walk = (nodes: TemplateNode[], trail: string[], loc: number[]): void => {
+    nodes.forEach((n, i) => {
+      if (n.type === 'folder') walk(n.children, [...trail, n.title || '(sem nome)'], [...loc, i]);
+      else add(n.text, n.title, ['Salvos', ...trail].join(' › '), true, [...loc, i]);
+    });
   };
-  walk(templates, []);
+  walk(templates, [], []);
   return out;
 }
 
@@ -452,6 +455,82 @@ function toggleSearch(): void {
   log('busca aberta, focada =', win.isFocused());
 }
 
+// ---------- editor da arvore de itens salvos (janela) ----------
+
+// Aceita so a estrutura esperada; qualquer outra coisa vinda da janela e descartada.
+function sanitizeTree(input: unknown, depth = 0): TemplateNode[] {
+  if (!Array.isArray(input) || depth > 50) return [];
+  const out: TemplateNode[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== 'object') continue;
+    const n = raw as Record<string, unknown>;
+    const title = typeof n.title === 'string' ? n.title : '';
+    if (n.type === 'folder') {
+      out.push({ type: 'folder', title, children: sanitizeTree(n.children, depth + 1) });
+    } else if (n.type === 'item' && typeof n.text === 'string') {
+      const item: TemplateNode = { type: 'item', title, text: n.text };
+      if (typeof n.modified === 'string') item.modified = n.modified;
+      out.push(item);
+    }
+  }
+  return out;
+}
+
+function openEditor(selectLoc?: number[]): void {
+  const sendSelect = (): void => {
+    if (selectLoc && editorWin && !editorWin.isDestroyed()) editorWin.webContents.send('editor:select', selectLoc);
+  };
+  if (!editorWin || editorWin.isDestroyed()) {
+    store.backupTemplates();
+    editorWin = new BrowserWindow({
+      width: 1000,
+      height: 660,
+      minWidth: 720,
+      minHeight: 420,
+      show: false,
+      title: 'CLCL — itens salvos',
+      webPreferences: {
+        preload: path.join(__dirname, '..', 'ui', 'editor-preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+    const win = editorWin;
+    win.setMenuBarVisibility(false);
+    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    win.webContents.on('will-navigate', (ev) => ev.preventDefault());
+    win.webContents.on('did-fail-load', (_e, code, desc) => log('editor: falha ao carregar', code, desc));
+    win.webContents.once('did-finish-load', sendSelect);
+    win.once('ready-to-show', () => {
+      win.show();
+      if (isMac) app.focus({ steal: true });
+      win.focus();
+    });
+    void win.loadFile(path.join(__dirname, '..', 'ui', 'editor.html'));
+    log('editor aberto');
+    return;
+  }
+  editorWin.show();
+  if (isMac) app.focus({ steal: true });
+  editorWin.focus();
+  sendSelect();
+}
+
+function registerEditorIpc(): void {
+  ipcMain.handle('editor:load', () => templates);
+  ipcMain.handle('editor:clipboard', () => clipboard.readText());
+  ipcMain.on('editor:save', (_ev, root: unknown) => {
+    if (!Array.isArray(root)) return;
+    setTemplates(sanitizeTree(root), true);
+  });
+  ipcMain.on('search:edit', (_ev, id: unknown) => {
+    const hit = typeof id === 'number' ? searchIndex[id] : undefined;
+    if (searchWin && !searchWin.isDestroyed()) searchWin.hide();
+    openEditor(hit?.loc);
+  });
+}
+
 function registerSearchIpc(): void {
   ipcMain.handle('search:items', () => buildSearchItems());
   ipcMain.on('search:close', () => hideSearch(true));
@@ -503,6 +582,17 @@ async function importDialog(): Promise<void> {
     if (ans.response !== 1) return;
   }
   importRegist(pick.filePaths[0]);
+}
+
+// Menu do app (so aparece com a busca ou o editor em foco): sem "Sair" no Cmd+Q,
+// para nao fechar o CLCL por engano, e com Editar para copiar/colar nos campos.
+function setAppMenu(): void {
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac ? [{ label: 'CLCL', submenu: [{ role: 'about' }, { type: 'separator' }, { role: 'hide' }] } as MenuItemConstructorOptions] : []),
+    { role: 'editMenu' },
+    { label: 'Janela', submenu: [{ role: 'close' }, { role: 'minimize' }] },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 // ---------- popup, bandeja, atalhos ----------
@@ -557,6 +647,7 @@ function createTray(): void {
       { label: `Itens salvos (${cfg.hotkeyTemplates})`, click: () => popupAtCursor(buildTemplatesMenu()) },
       { label: `Clipboard (${cfg.hotkeyHistory})`, click: () => popupAtCursor(buildHistoryMenu()) },
       { label: `Buscar… (${cfg.hotkeySearch})`, click: toggleSearch },
+      { label: 'Editar itens salvos…', click: () => openEditor() },
       { type: 'separator' },
       { label: 'Importar regist.dat…', click: () => void importDialog() },
       {
@@ -631,6 +722,8 @@ if (!app.requestSingleInstanceLock()) {
     lastSeen = clipboard.readText();
     createAnchor();
     registerSearchIpc();
+    registerEditorIpc();
+    setAppMenu();
     createSearchWindow();
     createTray();
     registerHotkeys();

@@ -45,6 +45,7 @@
     display: flex; justify-content: space-between; gap: 12px;
   }
   .empty { padding: 16px 12px; color: var(--dim); }
+  #foot a { color: inherit; text-decoration: underline; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -55,7 +56,7 @@
 </div>
 <div id="foot">
   <span id="count"></span>
-  <span>↑↓ escolher · Enter colar · Shift+Enter só copiar · Esc fechar</span>
+  <span>↑↓ escolher · Enter colar · Shift+Enter só copiar · <a id="edit" href="#">⌘E editar itens salvos</a> · Esc fechar</span>
 </div>
 <script>
 const MAX_ROWS = 200;
@@ -181,6 +182,9 @@ function choose(copyOnly) {
   if (it) window.clcl.choose(it.id, !!copyOnly);
 }
 
+// abre o editor da arvore, ja no item selecionado quando ele e um item salvo
+function openEditor() { window.clcl.edit(shown[sel] ? shown[sel].id : -1); }
+document.getElementById('edit').addEventListener('click', (ev) => { ev.preventDefault(); openEditor(); });
 q.addEventListener('input', search);
 window.addEventListener('keydown', (ev) => {
   if (ev.key === 'ArrowDown') { select(Math.min(sel + 1, shown.length - 1), true); ev.preventDefault(); }
@@ -188,6 +192,7 @@ window.addEventListener('keydown', (ev) => {
   else if (ev.key === 'PageDown') { select(Math.min(sel + 10, shown.length - 1), true); ev.preventDefault(); }
   else if (ev.key === 'PageUp') { select(Math.max(sel - 10, 0), true); ev.preventDefault(); }
   else if (ev.key === 'Enter') { choose(ev.shiftKey); ev.preventDefault(); }
+  else if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'e') { openEditor(); ev.preventDefault(); }
   else if (ev.key === 'Escape') { window.clcl.close(); ev.preventDefault(); }
 });
 window.clcl.onShow(load);

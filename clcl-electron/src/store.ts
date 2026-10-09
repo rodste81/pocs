@@ -58,6 +58,21 @@ export function loadConfig(): Config {
 export const hasTemplates = (): boolean => fs.existsSync(file('templates.json'));
 export const loadTemplates = (): TemplateNode[] => readJson<TemplateNode[]>('templates.json') ?? [];
 export const saveTemplates = (root: TemplateNode[]): void => writeJson('templates.json', root);
+
+// Copia de seguranca do templates.json (guarda as 10 mais recentes em backups/).
+export function backupTemplates(): void {
+  try {
+    if (!fs.existsSync(file('templates.json'))) return;
+    const dir = file('backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.copyFileSync(file('templates.json'), path.join(dir, `templates-${stamp}.json`));
+    const old = fs.readdirSync(dir).filter((f) => f.startsWith('templates-')).sort().reverse().slice(10);
+    for (const f of old) fs.unlinkSync(path.join(dir, f));
+  } catch {
+    /* backup e melhor esforco */
+  }
+}
 // Item do historico: texto puro ou imagem (PNG gravado em images/).
 export interface HistoryImage {
   image: string; // nome do arquivo em images/ (a miniatura e <nome>.thumb.png)

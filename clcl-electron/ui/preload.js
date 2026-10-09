@@ -4,5 +4,6 @@ contextBridge.exposeInMainWorld('clcl', {
   getItems: () => ipcRenderer.invoke('search:items'),
   choose: (id, copyOnly) => ipcRenderer.send('search:choose', id, copyOnly),
   close: () => ipcRenderer.send('search:close'),
+  edit: (id) => ipcRenderer.send('search:edit', id),
   onShow: (fn) => ipcRenderer.on('search:show', () => fn()),
 });

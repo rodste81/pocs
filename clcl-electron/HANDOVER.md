@@ -11,6 +11,7 @@ App Electron + TypeScript: bandeja, três atalhos globais, menus nativos e uma j
 | `Control+Q` | Itens salvos (a árvore importada do `regist.dat` + o que o usuário for salvando) |
 | `Control+W` | Clipboard (histórico, 30 itens) |
 | `Control+E` | Janela de busca (`ui/search.html`): filtra título, pasta e conteúdo dos itens salvos e dos textos do clipboard; Enter cola, Shift+Enter só copia |
+| ⌘E dentro da busca, ou "Editar itens salvos…" no ícone da barra | Editor da árvore (`ui/editor.html`): criar pasta/item, item a partir do clipboard, renomear, editar texto, mover (↑ ↓, recortar/colar), excluir, desfazer. Salva sozinho; a cada abertura grava uma cópia em `backups/` (10 mais recentes) |
 
 - `src/regist.ts`: importador do `regist.dat` (port de `File.c: file_file_to_item`). Usa `UNICODE TEXT` (UTF-16LE) quando existe, senão `TEXT` (windows-1252). Converte CRLF em LF. A pasta-raiz única (`Top_Clips`) vira o nível de cima do menu.
 - `src/main.ts`: bandeja, atalhos, polling do clipboard (300 ms), menus, colar com ⌘V via `osascript`.
@@ -37,7 +38,6 @@ A assinatura é ad-hoc: a cada reinstalação o macOS pede a permissão de Acess
 ## Pendências
 
 - Histórico guarda texto e imagens (PNG em `images/`, ex.: screenshot com ⌘⌃⇧4); a altura da miniatura no menu é `menuImageHeight` em `config.json` (16 a 256, padrão 48). Se o Finder (pasta ou mesa) está na frente ao escolher uma imagem, o app põe no clipboard um arquivo `Imagem AAAA-MM-DD HH.MM.SS.png` (via `osascript`), e o ⌘V cria o arquivo na pasta; nos outros apps cola a imagem. Arquivos copiados e RTF não entram; itens salvos (Control+Q) são só texto.
-- Editar, renomear, mover e apagar itens salvos: hoje só editando `templates.json` e usando "Recarregar itens salvos do arquivo".
 - Expansão de `%d` / `%t` (port do `tool_text`); 96 itens importados contêm esses padrões.
 - Ícone próprio do app e assinatura com Developer ID (hoje é ad-hoc).
 - Os dados do usuário (`regist.dat`, `templates.json`) têm senhas: **não commitar**.

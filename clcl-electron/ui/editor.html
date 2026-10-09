@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>CLCL — itens salvos</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #ffffff; --line: #d9d9d4; --text: #1c1c1a; --dim: #6d6d66;
+    --sel: #1f5fbf; --sel-text: #ffffff; --btn: #ffffff; --btn-hover: #ecece8; --danger: #b3261e;
+    --folder: #c98a12; --item: #6d6d66;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1f1e; --panel: #2a2a28; --line: #3d3d3a; --text: #ecece8; --dim: #a0a098;
+      --sel: #2f6fd6; --sel-text: #ffffff; --btn: #33332f; --btn-hover: #40403c; --danger: #f2867f;
+      --folder: #e0aa3e; --item: #a0a098;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 13px/1.4 -apple-system, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  #bar {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--bg);
+  }
+  #bar .gap { width: 10px; }
+  #bar .grow { flex: 1; }
+  button {
+    font: inherit; color: var(--text); background: var(--btn);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: default;
+  }
+  button:hover:not(:disabled) { background: var(--btn-hover); }
+  button:disabled { opacity: .4; }
+  button.danger { color: var(--danger); }
+  #status { color: var(--dim); font-size: 11px; min-width: 70px; text-align: right; }
+  #main { flex: 1; display: flex; min-height: 0; }
+  #tree {
+    width: 42%; min-width: 240px; overflow: auto; border-right: 1px solid var(--line);
+    background: var(--panel); outline: 0; padding: 4px 0;
+  }
+  .row { display: flex; align-items: center; height: 24px; padding-right: 8px; white-space: nowrap; cursor: default; }
+  .row .tw { width: 16px; text-align: center; color: var(--dim); font-size: 10px; flex: none; }
+  .row svg { width: 15px; height: 15px; flex: none; margin-right: 6px; }
+  .row .ic-folder { fill: var(--folder); }
+  .row .ic-item { fill: none; stroke: var(--item); stroke-width: 1.3; }
+  .row .lbl { overflow: hidden; text-overflow: ellipsis; }
+  .row .n { color: var(--dim); font-size: 11px; margin-left: 6px; }
+  .row.sel { background: var(--btn-hover); }
+  #tree:focus .row.sel, .row.sel.strong { background: var(--sel); color: var(--sel-text); }
+  #tree:focus .row.sel .tw, #tree:focus .row.sel .n { color: var(--sel-text); }
+  #tree:focus .row.sel .ic-folder { fill: var(--sel-text); }
+  #tree:focus .row.sel .ic-item { stroke: var(--sel-text); }
+  .row.cut { opacity: .45; }
+  #form { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 12px 14px; gap: 6px; }
+  #form label { color: var(--dim); font-size: 11px; }
+  #form input, #form textarea {
+    font: inherit; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; outline: 0; width: 100%;
+  }
+  #form input:focus, #form textarea:focus { border-color: var(--sel); }
+  #form textarea { flex: 1; resize: none; font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; white-space: pre; }
+  #where { color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hint { color: var(--dim); font-size: 11px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <button id="bFolder" title="Cria uma pasta dentro da pasta selecionada (ou ao lado do item selecionado)">+ Pasta</button>
+  <button id="bItem" title="Cria um item vazio">+ Item</button>
+  <button id="bClip" title="Cria um item com o texto que está no clipboard">+ Item do clipboard</button>
+  <span class="gap"></span>
+  <button id="bUp" title="Sobe uma posição">↑</button>
+  <button id="bDown" title="Desce uma posição">↓</button>
+  <button id="bCut" title="Marca para mover; depois selecione o destino e use Colar aqui">Recortar</button>
+  <button id="bPaste" title="Move o que foi recortado para a pasta selecionada (ou para depois do item selecionado)">Colar aqui</button>
+  <span class="gap"></span>
+  <button id="bDel" class="danger" title="Exclui a pasta ou o item selecionado">Excluir</button>
+  <button id="bUndo" title="Desfaz a última alteração">Desfazer</button>
+  <span class="grow"></span>
+  <span id="status"></span>
+</div>
+<div id="main">
+  <div id="tree" tabindex="0"></div>
+  <div id="form">
+    <div id="where"></div>
+    <label id="lTitle" for="fTitle">Nome</label>
+    <input id="fTitle" type="text" autocomplete="off" spellcheck="false">
+    <label id="lText" for="fText">Texto que será colado</label>
+    <textarea id="fText" spellcheck="false"></textarea>
+    <div id="hint" class="hint"></div>
+  </div>
+</div>
+<script>
+const api = window.clclEditor;
+const $ = (id) => document.getElementById(id);
+const tree = $('tree'), fTitle = $('fTitle'), fText = $('fText');
+const ROOT_NAME = 'Itens salvos';
+const UNDO_MAX = 15;
+
+let root = { type: 'folder', title: ROOT_NAME, children: [], open: true, parent: null };
+let sel = root;
+let cutNode = null;
+let rows = [];
+let undo = [];
+let saveTimer = null;
+let dirty = false;
+let editSnapshotTaken = false;
+let formNode = null;
+
+// ---------- modelo ----------
+function hydrate(nodes, parent) {
+  return nodes.map((n) => {
+    if (n.type === 'folder') {
+      const f = { type: 'folder', title: n.title, open: false, parent, children: [] };
+      f.children = hydrate(n.children, f);
+      return f;
+    }
+    const it = { type: 'item', title: n.title, text: n.text, parent };
+    if (n.modified) it.modified = n.modified;
+    return it;
+  });
+}
+function strip(nodes) {
+  return nodes.map((n) => {
+    if (n.type === 'folder') return { type: 'folder', title: n.title, children: strip(n.children) };
+    const it = { type: 'item', title: n.title, text: n.text };
+    if (n.modified) it.modified = n.modified;
+    return it;
+  });
+}
+const pathOf = (n) => { const p = []; for (; n && n.parent; n = n.parent) p.unshift(n.parent.children.indexOf(n)); return p; };
+function nodeAt(path) {
+  let n = root;
+  for (const i of path) { if (!n.children || !n.children[i]) return n; n = n.children[i]; }
+  return n;
+}
+function openPaths() {
+  const out = [];
+  const walk = (f) => { for (const c of f.children) if (c.type === 'folder') { if (c.open) out.push(pathOf(c).join('.')); walk(c); } };
+  walk(root);
+  return out;
+}
+function applyOpen(list) {
+  const set = new Set(list);
+  const walk = (f) => { for (const c of f.children) if (c.type === 'folder') { c.open = set.has(pathOf(c).join('.')); walk(c); } };
+  walk(root);
+}
+const isInside = (n, folder) => { for (; n; n = n.parent) if (n === folder) return true; return false; };
+const countItems = (f) => f.children.reduce((a, c) => a + (c.type === 'folder' ? countItems(c) : 1), 0);
+const labelOf = (n) => {
+  if (n === root) return ROOT_NAME;
+  if (n.type === 'folder') return n.title || '(sem nome)';
+  return n.title.trim() || (n.text.split('\n').find((l) => l.trim()) || '').trim() || '(vazio)';
+};
+
+// ---------- salvar / desfazer ----------
+function setStatus(t) { $('status').textContent = t; }
+function flush() {
+  if (!dirty) return;
+  clearTimeout(saveTimer);
+  dirty = false;
+  api.save(strip(root.children));
+  setStatus('Salvo');
+}
+function changed() {
+  dirty = true;
+  setStatus('Salvando…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 400);
+}
+function snapshot() {
+  undo.push({ tree: JSON.stringify(strip(root.children)), open: openPaths(), sel: pathOf(sel) });
+  if (undo.length > UNDO_MAX) undo.shift();
+}
+function restore(state) {
+  formNode = null;
+  root.children = hydrate(JSON.parse(state.tree), root);
+  applyOpen(state.open);
+  sel = nodeAt(state.sel);
+  cutNode = null;
+}
+
+// ---------- arvore ----------
+const SVG_FOLDER = '<svg viewBox="0 0 16 16" class="ic-folder"><path d="M1.5 3.6c0-.6.5-1.1 1.1-1.1h3.2c.3 0 .6.1.8.4l.9 1.1h5.9c.6 0 1.1.5 1.1 1.1v7.3c0 .6-.5 1.1-1.1 1.1H2.6c-.6 0-1.1-.5-1.1-1.1z"/></svg>';
+const SVG_ITEM = '<svg viewBox="0 0 16 16" class="ic-item"><path d="M4 1.8h5.2l3 3v9.4H4z"/><path d="M9 2v3h3M6 8.200h4.200M6 10.600h4.200"/></svg>';
+
+function buildRows() {
+  rows = [{ node: root, depth: 0 }];
+  const walk = (f, depth) => {
+    for (const c of f.children) {
+      rows.push({ node: c, depth });
+      if (c.type === 'folder' && c.open) walk(c, depth + 1);
+    }
+  };
+  walk(root, 1);
+}
+function render(keepFocus) {
+  buildRows();
+  tree.textContent = '';
+  for (const r of rows) {
+    const n = r.node;
+    const row = document.createElement('div');
+    row.className = 'row' + (n === sel ? ' sel' : '') + (cutNode && isInside(n, cutNode) ? ' cut' : '');
+    row.style.paddingLeft = (4 + r.depth * 16) + 'px';
+    const tw = document.createElement('span');
+    tw.className = 'tw';
+    if (n.type === 'folder' && n !== root) tw.textContent = n.open ? '▾' : '▸';
+    const ic = document.createElement('span');
+    ic.innerHTML = n.type === 'folder' ? SVG_FOLDER : SVG_ITEM;
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = labelOf(n);
+    row.append(tw, ic.firstChild, lbl);
+    if (n.type === 'folder') {
+      const c = document.createElement('span');
+      c.className = 'n';
+      c.textContent = countItems(n);
+      row.append(c);
+    }
+    tw.addEventListener('click', (ev) => { if (n.type === 'folder' && n !== root) { n.open = !n.open; select(n); ev.stopPropagation(); } });
+    row.addEventListener('click', () => { select(n); tree.focus(); });
+    row.addEventListener('dblclick', () => { if (n.type === 'folder' && n !== root) { n.open = !n.open; render(); } else if (n !== root) (n.type === 'item' ? fText : fTitle).focus(); });
+    tree.appendChild(row);
+  }
+  tree.querySelector('.row.sel')?.scrollIntoView({ block: 'nearest' });
+  showForm();
+  updateButtons();
+  if (keepFocus !== false && document.activeElement === document.body) tree.focus();
+}
+function select(n) {
+  flushEdit();
+  sel = n;
+  for (let p = n.parent; p; p = p.parent) p.open = true;
+  render();
+}
+function updateButtons() {
+  const isRoot = sel === root;
+  const sibs = sel.parent ? sel.parent.children : [];
+  const i = sibs.indexOf(sel);
+  $('bUp').disabled = isRoot || i <= 0;
+  $('bDown').disabled = isRoot || i === sibs.length - 1;
+  $('bCut').disabled = isRoot;
+  $('bDel').disabled = isRoot;
+  $('bPaste').disabled = !cutNode || isInside(sel, cutNode);
+  $('bUndo').disabled = undo.length === 0;
+}
+
+// ---------- formulario ----------
+function showForm() {
+  const isRoot = sel === root;
+  const isItem = sel.type === 'item';
+  const trail = [];
+  for (let p = sel.parent; p && p !== root; p = p.parent) trail.unshift(p.title || '(sem nome)');
+  $('where').textContent = isRoot ? '' : [ROOT_NAME, ...trail].join(' › ');
+  for (const id of ['lTitle', 'fTitle']) $(id).classList.toggle('hidden', isRoot);
+  for (const id of ['lText', 'fText']) $(id).classList.toggle('hidden', !isItem);
+  $('lTitle').textContent = isItem ? 'Título (opcional: sem ele, o menu mostra a 1ª linha do texto)' : 'Nome da pasta';
+  const same = formNode === sel; // mesmo no: nao mexe no campo em que o usuario esta digitando
+  formNode = sel;
+  if (!same || document.activeElement !== fTitle) fTitle.value = isRoot ? '' : sel.title;
+  if (!same || document.activeElement !== fText) fText.value = isItem ? sel.text : '';
+  $('hint').textContent = isRoot
+    ? 'Selecione uma pasta ou um item. Com esta linha selecionada, + Pasta e + Item criam no nível de cima do menu.'
+    : isItem ? '' : `${countItems(sel)} itens nesta pasta (contando as subpastas).`;
+}
+function flushEdit() { editSnapshotTaken = false; }
+function onEdit() {
+  if (sel === root) return;
+  if (!editSnapshotTaken) { snapshot(); editSnapshotTaken = true; }
+  sel.title = fTitle.value;
+  if (sel.type === 'item') { sel.text = fText.value; sel.modified = new Date().toISOString(); }
+  changed();
+  // atualiza so o rotulo da linha, sem redesenhar (para nao perder o cursor)
+  const i = rows.findIndex((r) => r.node === sel);
+  const lbl = tree.children[i]?.querySelector('.lbl');
+  if (lbl) lbl.textContent = labelOf(sel);
+  updateButtons();
+}
+fTitle.addEventListener('input', onEdit);
+fText.addEventListener('input', onEdit);
+for (const f of [fTitle, fText]) {
+  f.addEventListener('blur', () => { flushEdit(); flush(); });
+  f.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { tree.focus(); ev.preventDefault(); } ev.stopPropagation(); });
+}
+fTitle.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { (sel.type === 'item' ? fText : tree).focus(); ev.preventDefault(); } });
+
+// ---------- operacoes ----------
+function placeFor() {
+  if (sel.type === 'folder') { sel.open = true; return { parent: sel, index: sel.children.length }; }
+  return { parent: sel.parent, index: sel.parent.children.indexOf(sel) + 1 };
+}
+function insert(node) {
+  flushEdit();
+  snapshot();
+  const { parent, index } = placeFor();
+  node.parent = parent;
+  parent.children.splice(index, 0, node);
+  sel = node;
+  changed();
+  render(false);
+}
+function addFolder() {
+  insert({ type: 'folder', title: 'Nova pasta', open: true, children: [] });
+  fTitle.focus(); fTitle.select();
+}
+function addItem(text) {
+  insert({ type: 'item', title: '', text: text || '', modified: new Date().toISOString() });
+  (text ? fTitle : fText).focus();
+}
+async function addFromClipboard() {
+  const text = await api.clipboardText();
+  if (!text || !text.trim()) { setStatus('Clipboard sem texto'); return; }
+  addItem(text.replace(/\r\n/g, '\n'));
+}
+function removeSel() {
+  if (sel === root) return;
+  if (sel.type === 'folder' && sel.children.length) {
+    const n = countItems(sel);
+    if (!confirm(`Excluir a pasta "${labelOf(sel)}" com tudo que está dentro (${n} ${n === 1 ? 'item' : 'itens'})?`)) return;
+  }
+  flushEdit();
+  snapshot();
+  const sibs = sel.parent.children;
+  const i = sibs.indexOf(sel);
+  if (cutNode && isInside(cutNode, sel)) cutNode = null;
+  sibs.splice(i, 1);
+  sel = sibs[i] || sibs[i - 1] || sel.parent;
+  changed();
+  render();
+}
+function move(delta) {
+  if (sel === root) return;
+  const sibs = sel.parent.children;
+  const i = sibs.indexOf(sel), j = i + delta;
+  if (j < 0 || j >= sibs.length) return;
+  flushEdit();
+  snapshot();
+  sibs.splice(i, 1);
+  sibs.splice(j, 0, sel);
+  changed();
+  render();
+}
+function cut() { if (sel !== root) { cutNode = cutNode === sel ? null : sel; render(); } }
+function paste() {
+  if (!cutNode || isInside(sel, cutNode)) return;
+  flushEdit();
+  snapshot();
+  const node = cutNode;
+  node.parent.children.splice(node.parent.children.indexOf(node), 1);
+  const { parent, index } = placeFor();
+  node.parent = parent;
+  parent.children.splice(Math.min(index, parent.children.length), 0, node);
+  cutNode = null;
+  sel = node;
+  changed();
+  render();
+}
+function undoLast() {
+  const state = undo.pop();
+  if (!state) return;
+  flushEdit();
+  restore(state);
+  changed();
+  render();
+}
+$('bar').addEventListener('mousedown', (ev) => { if (ev.target.tagName === 'BUTTON') ev.preventDefault(); });
+const onTree = (fn) => () => { tree.focus(); fn(); };
+$('bFolder').addEventListener('click', addFolder);
+$('bItem').addEventListener('click', () => addItem(''));
+$('bClip').addEventListener('click', addFromClipboard);
+$('bUp').addEventListener('click', onTree(() => move(-1)));
+$('bDown').addEventListener('click', onTree(() => move(1)));
+$('bCut').addEventListener('click', onTree(cut));
+$('bPaste').addEventListener('click', onTree(paste));
+$('bDel').addEventListener('click', onTree(removeSel));
+$('bUndo').addEventListener('click', onTree(undoLast));
+
+// ---------- teclado na arvore ----------
+tree.addEventListener('keydown', (ev) => {
+  const i = rows.findIndex((r) => r.node === sel);
+  const go = (j) => { if (rows[j]) select(rows[j].node); };
+  if (ev.altKey && ev.key === 'ArrowUp') move(-1);
+  else if (ev.altKey && ev.key === 'ArrowDown') move(1);
+  else if (ev.key === 'ArrowDown') go(i + 1);
+  else if (ev.key === 'ArrowUp') go(i - 1);
+  else if (ev.key === 'ArrowRight') { if (sel.type === 'folder' && !sel.open) { sel.open = true; render(); } else go(i + 1); }
+  else if (ev.key === 'ArrowLeft') { if (sel.type === 'folder' && sel.open && sel !== root) { sel.open = false; render(); } else if (sel.parent) select(sel.parent); }
+  else if (ev.key === 'Enter') { if (sel !== root) { (sel.type === 'item' ? fText : fTitle).focus(); } }
+  else if (ev.key === 'Delete' || ev.key === 'Backspace') removeSel();
+  else return;
+  ev.preventDefault();
+});
+
+// ---------- carga ----------
+async function load(selectPath) {
+  const keepOpen = openPaths();
+  const keepSel = selectPath || pathOf(sel);
+  const data = await api.load();
+  formNode = null;
+  root.children = hydrate(data, root);
+  applyOpen(keepOpen);
+  sel = nodeAt(keepSel);
+  for (let p = sel.parent; p; p = p.parent) p.open = true;
+  cutNode = null;
+  render();
+  tree.focus();
+}
+api.onReload(() => { if (!dirty) { undo = []; load(); } });
+api.onSelect((path) => { flush(); load(path); });
+window.addEventListener('beforeunload', flush);
+window.addEventListener('blur', flush);
+load();
+</script>
+</body>
+</html>
