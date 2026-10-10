@@ -95,7 +95,11 @@ function sendPasteKey(): void {
 }
 
 // Copia o texto e, se der, cola na janela que estava em foco. Shift = so copiar.
-function useText(text: string, copyOnly: boolean, fromTemplate: boolean, pasteDelay = 120): void {
+// Tempo ate enviar o Cmd+V. No modo "activate" o CLCL esta na frente quando o item e
+// escolhido, entao e preciso esperar o foco voltar para o app do usuario.
+const pasteDelayDefault = (): number => (cfg.popupMode === 'activate' ? 280 : 120);
+
+function useText(text: string, copyOnly: boolean, fromTemplate: boolean, pasteDelay = pasteDelayDefault()): void {
   if (fromTemplate) ownWrite = text;
   clipboard.writeText(text);
   pasteIfAllowed(copyOnly, pasteDelay);
@@ -141,6 +145,8 @@ function copyAsFileIfFinder(source: string): Promise<boolean> {
 
 async function useImage(entry: store.HistoryImage, copyOnly: boolean): Promise<void> {
   const file = path.join(store.imagesDir(), entry.image);
+  // no modo "activate", espera o foco voltar ao app do usuario antes de ver se e o Finder
+  if (cfg.popupMode === 'activate') await new Promise((r) => setTimeout(r, 250));
   const img = nativeImage.createFromPath(file);
   if (img.isEmpty()) {
     notify('O arquivo dessa imagem não existe mais.');
@@ -663,6 +669,17 @@ let menuToken = 0;
 let menuShown = false;
 let menuMode: PopupMode = 'anchor';
 
+// Fecha o menu que estiver aberto, seja preso a janela-ancora ou ao icone da barra.
+function dismissOpenMenu(): void {
+  if (!openMenu) return;
+  try {
+    if (menuMode === 'tray') tray?.closeContextMenu();
+    else if (anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
+  } catch {
+    /* nada aberto */
+  }
+}
+
 function menuClosed(token: number, why: string): void {
   if (token !== menuToken || !openMenu) return;
   log('menu fechado', `(${why})`, openKind, menuMode, 'chegou a abrir =', menuShown);
@@ -701,11 +718,7 @@ function showMenu(build: () => Menu, kind: string, mode: PopupMode): void {
   setTimeout(() => {
     if (token !== menuToken || menuShown || !openMenu) return;
     log('*** o menu NAO abriu ***', kind, 'modo', mode);
-    try {
-      menu.closePopup(win);
-    } catch {
-      /* nada aberto */
-    }
+    dismissOpenMenu();
     menuClosed(token, 'nao abriu');
     const next = POPUP_MODES[POPUP_MODES.indexOf(mode) + 1];
     if (cfg.popupFallback && next) showMenu(build, kind, next);
@@ -718,11 +731,7 @@ function popupAtCursor(build: () => Menu, kind: string, mode: PopupMode = cfg.po
     const same = openKind === kind;
     const token = menuToken;
     log('menu ja aberto:', openKind, same ? '-> fecha' : `-> troca para ${kind}`);
-    try {
-      if (anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
-    } catch {
-      /* nada aberto */
-    }
+    dismissOpenMenu();
     menuClosed(token, 'fechado pelo atalho'); // nao depende do evento do sistema para liberar o estado
     if (!same) setTimeout(() => { if (!openMenu) showMenu(build, kind, mode); }, 150);
     return;
@@ -732,11 +741,7 @@ function popupAtCursor(build: () => Menu, kind: string, mode: PopupMode = cfg.po
 
 function runRemoteCommandClose(): void {
   const token = menuToken;
-  try {
-    if (openMenu && anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
-  } catch {
-    /* nada aberto */
-  }
+  dismissOpenMenu();
   menuClosed(token, 'fechado para abrir a busca');
 }
 
@@ -753,11 +758,7 @@ function runRemoteCommand(line: string): void {
   else if (cmd === 'search') toggleSearch();
   else if (cmd === 'close') {
     const token = menuToken;
-    try {
-      if (openMenu && anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
-    } catch {
-      /* nada aberto */
-    }
+    dismissOpenMenu();
     menuClosed(token, 'comando');
     hideSearch(false);
   } else if (cmd === 'set' && a === 'popupMode' && POPUP_MODES.includes(b as PopupMode)) {

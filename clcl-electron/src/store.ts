@@ -26,7 +26,7 @@ const defaults: Config = {
   autoPaste: true,
   menuImageHeight: 48,
   registPath: '',
-  popupMode: 'anchor',
+  popupMode: 'activate',
   popupFallback: false,
   remoteCommands: true,
 };

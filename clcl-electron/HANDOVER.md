@@ -25,6 +25,9 @@ Os atalhos ficam em `config.json` (`hotkeyTemplates`, `hotkeyHistory`, `hotkeySe
 
 - No macOS a janela-âncora do menu e a janela de busca são `type: 'panel'`, nível `screen-saver`: aparecem por cima de apps em tela cheia e em qualquer Space, e a busca recebe o teclado sem ativar o app (se não receber em 150 ms, cai para `app.focus({ steal: true })`). Apertar o mesmo atalho com o menu aberto fecha; outro atalho troca de menu.
 
+- **Modo de abertura do menu** (`config.json > popupMode`, padrão `activate`). Testado no Mac em 2026-10-09 com teclas reais: no modo `anchor` (app não ativado) o menu abre mas não recebe o teclado; Esc e setas vão para o app de baixo e os atalhos seguintes ficam na fila até o menu ser fechado com o mouse. No modo `activate` o CLCL vira o app da frente ao abrir e devolve o foco (`app.hide()`) ao fechar. `tray` abre preso ao ícone da barra. O log registra `menu abriu` / `*** o menu NAO abriu ***`.
+- **Comandos de teste**: com `remoteCommands: true`, o app lê `new clcl/clcl-cmd.txt` a cada 400 ms (`popup salvos|clipboard [modo]`, `search`, `close`, `set popupMode|popupFallback|remoteCommands <valor>`). Desligar com `set remoteCommands false` quando não estiver depurando.
+
 ## Como rodar
 
 ```
