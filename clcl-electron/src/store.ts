@@ -15,12 +15,15 @@ export interface Config {
   popupMode: 'anchor' | 'activate' | 'tray'; // como o menu e aberto (ver popupAtCursor)
   popupFallback: boolean; // se o menu nao abrir, tenta o proximo modo sozinho
   remoteCommands: boolean; // aceita comandos de teste pelo arquivo clcl-cmd.txt
+  hotkeysVersion: number; // controle interno: ver HOTKEYS_VERSION
 }
 
+const HOTKEYS_VERSION = 2;
+
 const defaults: Config = {
-  hotkeyTemplates: 'Control+2',
-  hotkeyHistory: 'Control+3',
-  hotkeySearch: 'Control+4',
+  hotkeyTemplates: 'Control+Q',
+  hotkeyHistory: 'Control+W',
+  hotkeySearch: 'Control+E',
   historyMax: 30,
   pollMs: 300,
   autoPaste: true,
@@ -29,6 +32,7 @@ const defaults: Config = {
   popupMode: 'activate',
   popupFallback: false,
   remoteCommands: true,
+  hotkeysVersion: 0,
 };
 
 const file = (name: string): string => path.join(app.getPath('userData'), name);
@@ -57,7 +61,16 @@ export const paths = {
 export function loadConfig(): Config {
   const saved = readJson<Partial<Config>>('config.json');
   const cfg = { ...defaults, ...(saved ?? {}) };
-  if (!saved || Object.keys(defaults).some((k) => !(k in saved))) writeJson('config.json', cfg);
+  // Troca unica dos atalhos para o padrao atual (Control+Q/W/E). Acontece uma vez por
+  // config.json; depois disso o que o usuario escrever no arquivo e respeitado.
+  const resetHotkeys = cfg.hotkeysVersion !== HOTKEYS_VERSION;
+  if (resetHotkeys) {
+    cfg.hotkeyTemplates = defaults.hotkeyTemplates;
+    cfg.hotkeyHistory = defaults.hotkeyHistory;
+    cfg.hotkeySearch = defaults.hotkeySearch;
+    cfg.hotkeysVersion = HOTKEYS_VERSION;
+  }
+  if (!saved || resetHotkeys || Object.keys(defaults).some((k) => !(k in saved))) writeJson('config.json', cfg);
   return cfg;
 }
 
