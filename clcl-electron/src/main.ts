@@ -687,7 +687,32 @@ function menuClosed(token: number, why: string): void {
   openMenu = undefined;
   openKind = '';
   if (anchor && !anchor.isDestroyed()) anchor.hide();
-  if (mode === 'activate' && isMac) app.hide(); // devolve o foco ao app que estava na frente
+  if (mode === 'activate' && isMac) {
+    appActive = false;
+    app.hide(); // devolve o foco ao app que estava na frente
+  }
+}
+
+// O macOS fecha um menu quando o app muda de ativo/inativo no meio da abertura (o menu
+// "pisca"). Por isso, no modo activate, so abrimos o menu depois de o app estar ativo.
+let appActive = false;
+function whenAppActive(fn: () => void): void {
+  if (!isMac || appActive) {
+    fn();
+    return;
+  }
+  let done = false;
+  const go = (why: string): void => {
+    if (done) return;
+    done = true;
+    app.removeListener('did-become-active', onActive);
+    log('app ativo:', why);
+    setTimeout(fn, 40);
+  };
+  const onActive = (): void => go('evento');
+  app.once('did-become-active', onActive);
+  app.focus({ steal: true });
+  setTimeout(() => go('tempo esgotado'), 350);
 }
 
 function showMenu(build: () => Menu, kind: string, mode: PopupMode): void {
@@ -710,19 +735,27 @@ function showMenu(build: () => Menu, kind: string, mode: PopupMode): void {
     tray.popUpContextMenu(menu);
   } else {
     win.setBounds({ x: pt.x, y: pt.y, width: 1, height: 1 });
-    if (mode === 'activate' && isMac) app.focus({ steal: true });
-    win.showInactive();
-    menu.popup({ window: win, x: 0, y: 0, callback: () => menuClosed(token, 'callback') });
+    const open = (): void => {
+      if (token !== menuToken || !openMenu) return; // cancelado enquanto esperava o app ativar
+      win.showInactive();
+      menu.popup({ window: win, x: 0, y: 0, callback: () => menuClosed(token, 'callback') });
+      setTimeout(check, 400);
+    };
+    if (mode === 'activate') whenAppActive(open);
+    else open();
+    return;
   }
+  setTimeout(check, 400);
+
   // Confere se o menu abriu mesmo. Se nao abriu, limpa o estado e (opcional) tenta outro modo.
-  setTimeout(() => {
+  function check(): void {
     if (token !== menuToken || menuShown || !openMenu) return;
     log('*** o menu NAO abriu ***', kind, 'modo', mode);
     dismissOpenMenu();
     menuClosed(token, 'nao abriu');
     const next = POPUP_MODES[POPUP_MODES.indexOf(mode) + 1];
     if (cfg.popupFallback && next) showMenu(build, kind, next);
-  }, 400);
+  }
 }
 
 // `kind` identifica o menu: o mesmo atalho de novo fecha; outro atalho troca de menu.
@@ -900,6 +933,12 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.on('window-all-closed', () => {
     /* app de bandeja: continua rodando */
+  });
+  app.on('did-become-active', () => {
+    appActive = true;
+  });
+  app.on('did-resign-active', () => {
+    appActive = false;
   });
   app.on('will-quit', () => globalShortcut.unregisterAll());
   process.on('uncaughtException', (err) => log('uncaughtException', err));
