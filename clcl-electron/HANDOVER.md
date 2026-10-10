@@ -8,10 +8,12 @@ App Electron + TypeScript: bandeja, três atalhos globais, menus nativos e uma j
 
 | Atalho | Menu |
 |---|---|
-| `Control+Q` | Itens salvos (a árvore importada do `regist.dat` + o que o usuário for salvando) |
-| `Control+W` | Clipboard (histórico, 30 itens) |
-| `Control+E` | Janela de busca (`ui/search.html`): filtra título, pasta e conteúdo dos itens salvos e dos textos do clipboard; Enter cola, Shift+Enter só copia |
+| `Control+2` | Itens salvos (a árvore importada do `regist.dat` + o que o usuário for salvando) |
+| `Control+3` | Clipboard (histórico, 30 itens) |
+| `Control+4` | Janela de busca (`ui/search.html`): filtra título, pasta e conteúdo dos itens salvos e dos textos do clipboard; Enter cola, Shift+Enter só copia |
 | ⌘E dentro da busca, ou "Editar itens salvos…" no ícone da barra | Editor da árvore (`ui/editor.html`): criar pasta/item, item a partir do clipboard, renomear, editar texto, mover (↑ ↓, recortar/colar), excluir, desfazer. Salva sozinho; a cada abertura grava uma cópia em `backups/` (10 mais recentes) |
+
+Os atalhos ficam em `config.json` (`hotkeyTemplates`, `hotkeyHistory`, `hotkeySearch`). Eram Control+Q/W/E até 2026-10-09; um `config.json` antigo com esses valores é migrado sozinho na abertura.
 
 - `src/regist.ts`: importador do `regist.dat` (port de `File.c: file_file_to_item`). Usa `UNICODE TEXT` (UTF-16LE) quando existe, senão `TEXT` (windows-1252). Converte CRLF em LF. A pasta-raiz única (`Top_Clips`) vira o nível de cima do menu.
 - `src/main.ts`: bandeja, atalhos, polling do clipboard (300 ms), menus, colar com ⌘V via `osascript`.
@@ -33,11 +35,11 @@ A assinatura é ad-hoc: a cada reinstalação o macOS pede a permissão de Acess
 ## Testado / não testado
 
 - Testado no Linux (headless): compilação, importação do `regist.dat` real, inicialização sem erro, empacotamento (`npm run pack`).
-- **Não testado no macOS**: o popup do menu na posição do cursor (janela-âncora 1x1 com `showInactive`), o ⌘V automático (precisa de Acessibilidade) e os atalhos `Control+Q` / `Control+W` / `Control+E`, o foco da janela de busca (abre, e ao fechar devolve o foco com `app.hide()`) e o `scripts/install-mac.sh`.
+- **Não testado no macOS**: o popup do menu na posição do cursor (janela-âncora 1x1 com `showInactive`), o ⌘V automático (precisa de Acessibilidade) e os atalhos `Control+2` / `Control+3` / `Control+4`, o foco da janela de busca (abre, e ao fechar devolve o foco com `app.hide()`) e o `scripts/install-mac.sh`.
 
 ## Pendências
 
-- Histórico guarda texto e imagens (PNG em `images/`, ex.: screenshot com ⌘⌃⇧4); a altura da miniatura no menu é `menuImageHeight` em `config.json` (16 a 256, padrão 48). Se o Finder (pasta ou mesa) está na frente ao escolher uma imagem, o app põe no clipboard um arquivo `Imagem AAAA-MM-DD HH.MM.SS.png` (via `osascript`), e o ⌘V cria o arquivo na pasta; nos outros apps cola a imagem. Arquivos copiados e RTF não entram; itens salvos (Control+Q) são só texto.
+- Histórico guarda texto e imagens (PNG em `images/`, ex.: screenshot com ⌘⌃⇧4); a altura da miniatura no menu é `menuImageHeight` em `config.json` (16 a 256, padrão 48). Se o Finder (pasta ou mesa) está na frente ao escolher uma imagem, o app põe no clipboard um arquivo `Imagem AAAA-MM-DD HH.MM.SS.png` (via `osascript`), e o ⌘V cria o arquivo na pasta; nos outros apps cola a imagem. Arquivos copiados e RTF não entram; itens salvos (Control+2) são só texto.
 - Expansão de `%d` / `%t` (port do `tool_text`); 96 itens importados contêm esses padrões.
 - Ícone próprio do app e assinatura com Developer ID (hoje é ad-hoc).
 - Os dados do usuário (`regist.dat`, `templates.json`) têm senhas: **não commitar**.

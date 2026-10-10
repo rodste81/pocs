@@ -15,9 +15,9 @@ export interface Config {
 }
 
 const defaults: Config = {
-  hotkeyTemplates: 'Control+Q',
-  hotkeyHistory: 'Control+W',
-  hotkeySearch: 'Control+E',
+  hotkeyTemplates: 'Control+2',
+  hotkeyHistory: 'Control+3',
+  hotkeySearch: 'Control+4',
   historyMax: 30,
   pollMs: 300,
   autoPaste: true,
@@ -51,7 +51,17 @@ export const paths = {
 export function loadConfig(): Config {
   const saved = readJson<Partial<Config>>('config.json');
   const cfg = { ...defaults, ...(saved ?? {}) };
-  if (!saved || Object.keys(defaults).some((k) => !(k in saved))) writeJson('config.json', cfg);
+  // Os atalhos padrao eram Control+Q/W/E: quem ainda esta neles passa para os novos.
+  // Um atalho que o usuario trocou a mao no config.json nao e mexido.
+  const oldDefaults: Partial<Config> = { hotkeyTemplates: 'Control+Q', hotkeyHistory: 'Control+W', hotkeySearch: 'Control+E' };
+  let migrated = false;
+  for (const k of ['hotkeyTemplates', 'hotkeyHistory', 'hotkeySearch'] as const) {
+    if (cfg[k] === oldDefaults[k]) {
+      cfg[k] = defaults[k];
+      migrated = true;
+    }
+  }
+  if (!saved || migrated || Object.keys(defaults).some((k) => !(k in saved))) writeJson('config.json', cfg);
   return cfg;
 }
 
