@@ -37,6 +37,7 @@ let anchor: BrowserWindow | undefined;
 let searchWin: BrowserWindow | undefined;
 let editorWin: BrowserWindow | undefined;
 let openMenu: Menu | undefined; // referencia viva enquanto o menu esta aberto (evita coleta pelo GC)
+let openKind = '';
 let searchShownAt = 0;
 let searchIndex: { text: string; fromTemplate: boolean; loc?: number[] }[] = [];
 let templatesMenu: Menu | undefined; // cache: so reconstroi quando os templates mudam
@@ -402,7 +403,9 @@ function buildSearchItems(): SearchItem[] {
 function hideSearch(returnFocus: boolean): void {
   if (!searchWin || searchWin.isDestroyed() || !searchWin.isVisible()) return;
   searchWin.hide();
-  if (returnFocus && isMac) app.hide(); // devolve o foco ao app que estava na frente
+  // devolve o foco ao app que estava na frente (sem esconder o editor, se estiver aberto)
+  const editorOpen = !!editorWin && !editorWin.isDestroyed() && editorWin.isVisible();
+  if (returnFocus && isMac && !editorOpen) app.hide();
 }
 
 function createSearchWindow(): void {
@@ -418,6 +421,7 @@ function createSearchWindow(): void {
     fullscreenable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
+    ...floatingOptions,
     webPreferences: {
       preload: path.join(__dirname, '..', 'ui', 'preload.js'),
       contextIsolation: true,
@@ -425,7 +429,7 @@ function createSearchWindow(): void {
       sandbox: true,
     },
   });
-  searchWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  floatOverEverything(searchWin);
   void searchWin.loadFile(path.join(__dirname, '..', 'ui', 'search.html'));
   searchWin.on('blur', () => {
     // ao abrir, o macOS pode disparar um blur antes de o app virar o ativo
@@ -448,11 +452,22 @@ function toggleSearch(): void {
   const [w, h] = win.getSize();
   win.setPosition(Math.round(area.x + (area.width - w) / 2), Math.round(area.y + (area.height - h) / 3));
   searchShownAt = Date.now();
+  if (openMenu && anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
   win.show();
-  if (isMac) app.focus({ steal: true }); // app sem Dock: precisa virar o ativo para receber o teclado
   win.focus();
   win.webContents.send('search:show');
-  log('busca aberta, focada =', win.isFocused());
+  // o painel costuma receber o teclado sem ativar o app; se nao recebeu, ativa o app
+  setTimeout(() => {
+    if (win.isDestroyed() || !win.isVisible()) return;
+    const focused = win.isFocused();
+    log('busca aberta, focada =', focused);
+    if (!focused) {
+      searchShownAt = Date.now();
+      if (isMac) app.focus({ steal: true });
+      win.focus();
+      setTimeout(() => log('busca: apos ativar o app, focada =', !win.isDestroyed() && win.isFocused()), 200);
+    }
+  }, 150);
 }
 
 // ---------- editor da arvore de itens salvos (janela) ----------
@@ -597,21 +612,40 @@ function setAppMenu(): void {
 
 // ---------- popup, bandeja, atalhos ----------
 
+// No macOS as janelas de apoio sao "panel": aparecem por cima de apps em tela cheia
+// e em qualquer mesa (Space), e recebem o teclado sem tirar o app do usuario da frente.
+const floatingOptions: Electron.BrowserWindowConstructorOptions = isMac ? { type: 'panel' } : {};
+function floatOverEverything(win: BrowserWindow): void {
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+}
+
 // Menu.popup precisa de uma janela: usamos uma janela invisivel de 1x1 sob o
 // cursor, mostrada sem ativar o app, para o foco continuar na janela do usuario.
-function popupAtCursor(menu: Menu): void {
+// `kind` identifica o menu: o mesmo atalho de novo fecha; outro atalho troca de menu.
+function popupAtCursor(menu: Menu, kind = 'menu'): void {
   if (!anchor || anchor.isDestroyed()) return;
   const win = anchor;
+  if (openMenu) {
+    const same = openKind === kind;
+    log('menu ja aberto:', openKind, same ? '-> fecha' : `-> troca para ${kind}`);
+    openMenu.closePopup(win);
+    if (!same) setTimeout(() => popupAtCursor(kind === 'salvos' ? buildTemplatesMenu() : kind === 'clipboard' ? buildHistoryMenu() : menu, kind), 120);
+    return;
+  }
   const pt = screen.getCursorScreenPoint();
   win.setBounds({ x: pt.x, y: pt.y, width: 1, height: 1 });
   win.showInactive();
   openMenu = menu;
-  log('popup', menu.items.length, 'itens em', pt.x, pt.y);
+  openKind = kind;
+  log('popup', kind, menu.items.length, 'itens em', pt.x, pt.y);
   menu.popup({
     window: win,
     x: 0,
     y: 0,
     callback: () => {
+      openMenu = undefined;
+      openKind = '';
       win.hide();
       log('popup fechado');
     },
@@ -630,8 +664,9 @@ function createAnchor(): void {
     focusable: false,
     skipTaskbar: true,
     alwaysOnTop: true,
+    ...floatingOptions,
   });
-  anchor.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  floatOverEverything(anchor);
 }
 
 function createTray(): void {
@@ -694,8 +729,8 @@ function registerHotkeys(): void {
     log('registro', key, ok ? 'ok' : 'FALHOU');
     if (!ok) failed.push(key);
   };
-  reg(cfg.hotkeyTemplates, () => popupAtCursor(buildTemplatesMenu()));
-  reg(cfg.hotkeyHistory, () => popupAtCursor(buildHistoryMenu()));
+  reg(cfg.hotkeyTemplates, () => popupAtCursor(buildTemplatesMenu(), 'salvos'));
+  reg(cfg.hotkeyHistory, () => popupAtCursor(buildHistoryMenu(), 'clipboard'));
   reg(cfg.hotkeySearch, toggleSearch);
   if (failed.length) notify(`Não consegui registrar o atalho: ${failed.join(', ')}. Ajuste em config.json.`);
 }

@@ -21,6 +21,8 @@ Os atalhos ficam em `config.json` (`hotkeyTemplates`, `hotkeyHistory`, `hotkeySe
 - Primeira execução: se não existe `templates.json`, importa o `regist.dat` de `../regist.dat` (a pasta `new clcl`) ou do caminho em `config.json > registPath`.
 - Resultado da importação do arquivo do usuário: 1411 itens, 208 pastas, 3 itens vazios descartados.
 
+- No macOS a janela-âncora do menu e a janela de busca são `type: 'panel'`, nível `screen-saver`: aparecem por cima de apps em tela cheia e em qualquer Space, e a busca recebe o teclado sem ativar o app (se não receber em 150 ms, cai para `app.focus({ steal: true })`). Apertar o mesmo atalho com o menu aberto fecha; outro atalho troca de menu.
+
 ## Como rodar
 
 ```
