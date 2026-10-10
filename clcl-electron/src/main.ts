@@ -453,7 +453,7 @@ function toggleSearch(): void {
   const [w, h] = win.getSize();
   win.setPosition(Math.round(area.x + (area.width - w) / 2), Math.round(area.y + (area.height - h) / 3));
   searchShownAt = Date.now();
-  if (openMenu && anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
+  if (openMenu) runRemoteCommandClose();
   win.show();
   win.focus();
   win.webContents.send('search:show');
@@ -651,36 +651,135 @@ function floatOverEverything(win: BrowserWindow): void {
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
 }
 
-// Menu.popup precisa de uma janela: usamos uma janela invisivel de 1x1 sob o
-// cursor, mostrada sem ativar o app, para o foco continuar na janela do usuario.
-// `kind` identifica o menu: o mesmo atalho de novo fecha; outro atalho troca de menu.
-function popupAtCursor(menu: Menu, kind = 'menu'): void {
+// ---- abertura do menu ----
+// Menu.popup precisa de uma janela: usamos uma janela invisivel de 1x1 sob o cursor.
+// Modos (config.json > popupMode):
+//   anchor   - mostra a janela sem ativar o app; o foco continua no app do usuario
+//   activate - ativa o CLCL antes de abrir e devolve o foco ao fechar
+//   tray     - abre o menu preso ao icone da barra de menus (nao segue o cursor)
+type PopupMode = store.Config['popupMode'];
+const POPUP_MODES: PopupMode[] = ['anchor', 'activate', 'tray'];
+let menuToken = 0;
+let menuShown = false;
+let menuMode: PopupMode = 'anchor';
+
+function menuClosed(token: number, why: string): void {
+  if (token !== menuToken || !openMenu) return;
+  log('menu fechado', `(${why})`, openKind, menuMode, 'chegou a abrir =', menuShown);
+  const mode = menuMode;
+  openMenu = undefined;
+  openKind = '';
+  if (anchor && !anchor.isDestroyed()) anchor.hide();
+  if (mode === 'activate' && isMac) app.hide(); // devolve o foco ao app que estava na frente
+}
+
+function showMenu(build: () => Menu, kind: string, mode: PopupMode): void {
   if (!anchor || anchor.isDestroyed()) return;
   const win = anchor;
-  if (openMenu) {
-    const same = openKind === kind;
-    log('menu ja aberto:', openKind, same ? '-> fecha' : `-> troca para ${kind}`);
-    openMenu.closePopup(win);
-    if (!same) setTimeout(() => popupAtCursor(kind === 'salvos' ? buildTemplatesMenu() : kind === 'clipboard' ? buildHistoryMenu() : menu, kind), 120);
-    return;
-  }
-  const pt = screen.getCursorScreenPoint();
-  win.setBounds({ x: pt.x, y: pt.y, width: 1, height: 1 });
-  win.showInactive();
+  const menu = build();
+  const token = ++menuToken;
   openMenu = menu;
   openKind = kind;
-  log('popup', kind, menu.items.length, 'itens em', pt.x, pt.y);
-  menu.popup({
-    window: win,
-    x: 0,
-    y: 0,
-    callback: () => {
-      openMenu = undefined;
-      openKind = '';
-      win.hide();
-      log('popup fechado');
-    },
+  menuShown = false;
+  menuMode = mode;
+  menu.once('menu-will-show', () => {
+    if (token === menuToken) menuShown = true;
+    log('menu abriu', kind, mode);
   });
+  menu.once('menu-will-close', () => menuClosed(token, 'evento'));
+  const pt = screen.getCursorScreenPoint();
+  log('popup', kind, 'modo', mode, menu.items.length, 'itens em', pt.x, pt.y);
+  if (mode === 'tray' && tray) {
+    tray.popUpContextMenu(menu);
+  } else {
+    win.setBounds({ x: pt.x, y: pt.y, width: 1, height: 1 });
+    if (mode === 'activate' && isMac) app.focus({ steal: true });
+    win.showInactive();
+    menu.popup({ window: win, x: 0, y: 0, callback: () => menuClosed(token, 'callback') });
+  }
+  // Confere se o menu abriu mesmo. Se nao abriu, limpa o estado e (opcional) tenta outro modo.
+  setTimeout(() => {
+    if (token !== menuToken || menuShown || !openMenu) return;
+    log('*** o menu NAO abriu ***', kind, 'modo', mode);
+    try {
+      menu.closePopup(win);
+    } catch {
+      /* nada aberto */
+    }
+    menuClosed(token, 'nao abriu');
+    const next = POPUP_MODES[POPUP_MODES.indexOf(mode) + 1];
+    if (cfg.popupFallback && next) showMenu(build, kind, next);
+  }, 400);
+}
+
+// `kind` identifica o menu: o mesmo atalho de novo fecha; outro atalho troca de menu.
+function popupAtCursor(build: () => Menu, kind: string, mode: PopupMode = cfg.popupMode): void {
+  if (openMenu) {
+    const same = openKind === kind;
+    const token = menuToken;
+    log('menu ja aberto:', openKind, same ? '-> fecha' : `-> troca para ${kind}`);
+    try {
+      if (anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
+    } catch {
+      /* nada aberto */
+    }
+    menuClosed(token, 'fechado pelo atalho'); // nao depende do evento do sistema para liberar o estado
+    if (!same) setTimeout(() => { if (!openMenu) showMenu(build, kind, mode); }, 150);
+    return;
+  }
+  showMenu(build, kind, mode);
+}
+
+function runRemoteCommandClose(): void {
+  const token = menuToken;
+  try {
+    if (openMenu && anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
+  } catch {
+    /* nada aberto */
+  }
+  menuClosed(token, 'fechado para abrir a busca');
+}
+
+// ---- comandos de teste (arquivo clcl-cmd.txt na pasta "new clcl" do iCloud) ----
+// Uma linha por comando:  popup salvos|clipboard [anchor|activate|tray]  |  search  |  close
+//                         set popupMode <modo>  |  set popupFallback true|false  |  set remoteCommands false
+function runRemoteCommand(line: string): void {
+  const [cmd, a, b] = line.trim().split(/\s+/);
+  if (!cmd) return;
+  log('comando remoto:', line.trim());
+  const mode = POPUP_MODES.includes(b as PopupMode) ? (b as PopupMode) : cfg.popupMode;
+  if (cmd === 'popup' && a === 'salvos') popupAtCursor(buildTemplatesMenu, 'salvos', mode);
+  else if (cmd === 'popup' && a === 'clipboard') popupAtCursor(buildHistoryMenu, 'clipboard', mode);
+  else if (cmd === 'search') toggleSearch();
+  else if (cmd === 'close') {
+    const token = menuToken;
+    try {
+      if (openMenu && anchor && !anchor.isDestroyed()) openMenu.closePopup(anchor);
+    } catch {
+      /* nada aberto */
+    }
+    menuClosed(token, 'comando');
+    hideSearch(false);
+  } else if (cmd === 'set' && a === 'popupMode' && POPUP_MODES.includes(b as PopupMode)) {
+    cfg.popupMode = b as PopupMode;
+    store.saveConfig(cfg);
+  } else if (cmd === 'set' && (a === 'popupFallback' || a === 'remoteCommands') && (b === 'true' || b === 'false')) {
+    cfg[a] = b === 'true';
+    store.saveConfig(cfg);
+  } else log('comando remoto desconhecido');
+}
+
+function pollRemoteCommands(): void {
+  if (!cfg.remoteCommands) return;
+  const file = path.join(os.homedir(), 'Library/Mobile Documents/com~apple~CloudDocs/Desktop/new clcl/clcl-cmd.txt');
+  let text: string;
+  try {
+    text = fs.readFileSync(file, 'utf8');
+    fs.unlinkSync(file);
+  } catch {
+    return;
+  }
+  text.split('\n').slice(0, 5).forEach(runRemoteCommand);
 }
 
 function createAnchor(): void {
@@ -710,8 +809,8 @@ function createTray(): void {
   tray.setToolTip(`CLCL — salvos: ${cfg.hotkeyTemplates} · clipboard: ${cfg.hotkeyHistory} · busca: ${cfg.hotkeySearch}`);
   const showMenu = (): void => {
     const menu = Menu.buildFromTemplate([
-      { label: `Itens salvos (${cfg.hotkeyTemplates})`, click: () => popupAtCursor(buildTemplatesMenu()) },
-      { label: `Clipboard (${cfg.hotkeyHistory})`, click: () => popupAtCursor(buildHistoryMenu()) },
+      { label: `Itens salvos (${cfg.hotkeyTemplates})`, click: () => setTimeout(() => popupAtCursor(buildTemplatesMenu, 'salvos'), 150) },
+      { label: `Clipboard (${cfg.hotkeyHistory})`, click: () => setTimeout(() => popupAtCursor(buildHistoryMenu, 'clipboard'), 150) },
       { label: `Buscar… (${cfg.hotkeySearch})`, click: toggleSearch },
       { label: 'Editar itens salvos…', click: () => openEditor() },
       { type: 'separator' },
@@ -760,8 +859,8 @@ function registerHotkeys(): void {
     log('registro', key, ok ? 'ok' : 'FALHOU');
     if (!ok) failed.push(key);
   };
-  reg(cfg.hotkeyTemplates, () => popupAtCursor(buildTemplatesMenu(), 'salvos'));
-  reg(cfg.hotkeyHistory, () => popupAtCursor(buildHistoryMenu(), 'clipboard'));
+  reg(cfg.hotkeyTemplates, () => popupAtCursor(buildTemplatesMenu, 'salvos'));
+  reg(cfg.hotkeyHistory, () => popupAtCursor(buildHistoryMenu, 'clipboard'));
   reg(cfg.hotkeySearch, toggleSearch);
   if (failed.length) notify(`Não consegui registrar o atalho: ${failed.join(', ')}. Ajuste em config.json.`);
 }
@@ -796,6 +895,7 @@ if (!app.requestSingleInstanceLock()) {
     buildTemplatesMenu();
     if (isMac && cfg.autoPaste) systemPreferences.isTrustedAccessibilityClient(true);
     setInterval(pollClipboard, cfg.pollMs);
+    setInterval(pollRemoteCommands, 400);
   });
   app.on('window-all-closed', () => {
     /* app de bandeja: continua rodando */

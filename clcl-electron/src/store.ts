@@ -12,6 +12,9 @@ export interface Config {
   autoPaste: boolean;
   menuImageHeight: number; // altura (px) da miniatura das imagens no menu, de 16 a 256
   registPath: string; // regist.dat usado na primeira carga
+  popupMode: 'anchor' | 'activate' | 'tray'; // como o menu e aberto (ver popupAtCursor)
+  popupFallback: boolean; // se o menu nao abrir, tenta o proximo modo sozinho
+  remoteCommands: boolean; // aceita comandos de teste pelo arquivo clcl-cmd.txt
 }
 
 const defaults: Config = {
@@ -23,6 +26,9 @@ const defaults: Config = {
   autoPaste: true,
   menuImageHeight: 48,
   registPath: '',
+  popupMode: 'anchor',
+  popupFallback: false,
+  remoteCommands: true,
 };
 
 const file = (name: string): string => path.join(app.getPath('userData'), name);
@@ -65,6 +71,7 @@ export function loadConfig(): Config {
   return cfg;
 }
 
+export const saveConfig = (cfg: Config): void => writeJson('config.json', cfg);
 export const hasTemplates = (): boolean => fs.existsSync(file('templates.json'));
 export const loadTemplates = (): TemplateNode[] => readJson<TemplateNode[]>('templates.json') ?? [];
 export const saveTemplates = (root: TemplateNode[]): void => writeJson('templates.json', root);
