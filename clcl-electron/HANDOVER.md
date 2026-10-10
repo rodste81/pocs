@@ -13,6 +13,8 @@ App Electron + TypeScript: bandeja, três atalhos globais, menus nativos e uma j
 | `Control+4` | Janela de busca (`ui/search.html`): filtra título, pasta e conteúdo dos itens salvos e dos textos do clipboard; Enter cola, Shift+Enter só copia |
 | ⌘E dentro da busca, ou "Editar itens salvos…" no ícone da barra | Editor da árvore (`ui/editor.html`): criar pasta/item, item a partir do clipboard, renomear, editar texto, mover (↑ ↓, recortar/colar), excluir, desfazer. Salva sozinho; a cada abertura grava uma cópia em `backups/` (10 mais recentes) |
 
+Na busca, um link (`http(s)://…`) colado sozinho vira a opção "Baixar o vídeo deste link para Downloads": `src/download.ts` chama o `yt-dlp` instalado na máquina (procura em `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` e no PATH; o link vai depois de `--`, sem shell). Requer `brew install yt-dlp ffmpeg`. O resultado sai em notificação; clicar nela mostra o arquivo no Finder.
+
 Os atalhos ficam em `config.json` (`hotkeyTemplates`, `hotkeyHistory`, `hotkeySearch`). Eram Control+Q/W/E até 2026-10-09; um `config.json` antigo com esses valores é migrado sozinho na abertura.
 
 - `src/regist.ts`: importador do `regist.dat` (port de `File.c: file_file_to_item`). Usa `UNICODE TEXT` (UTF-16LE) quando existe, senão `TEXT` (windows-1252). Converte CRLF em LF. A pasta-raiz única (`Top_Clips`) vira o nível de cima do menu.

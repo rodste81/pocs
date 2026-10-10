@@ -49,7 +49,7 @@
 </style>
 </head>
 <body>
-<input id="q" type="text" placeholder="Buscar nos itens salvos e no clipboard…" autocomplete="off" spellcheck="false" autofocus>
+<input id="q" type="text" placeholder="Buscar nos itens salvos e no clipboard, ou colar um link de vídeo…" autocomplete="off" spellcheck="false" autofocus>
 <div id="main">
   <div id="list"></div>
   <pre id="preview"></pre>
@@ -84,6 +84,9 @@ async function load() {
   q.focus();
 }
 
+// um link colado sozinho na caixa vira a opcao de baixar o video
+const asUrl = (s) => (/^https?:\/\/\S+$/i.test(s.trim()) ? s.trim() : '');
+
 function search() {
   const terms = fold(q.value).split(/\s+/).filter(Boolean);
   let found;
@@ -98,6 +101,15 @@ function search() {
     }
     found.sort((a, b) => a.score - b.score);
     found = found.map((f) => f.it);
+  }
+  const url = asUrl(q.value);
+  if (url) {
+    found.unshift({
+      download: url,
+      label: '⬇  Baixar o vídeo deste link para Downloads',
+      path: url,
+      text: 'Enter baixa o vídeo deste link para a pasta Downloads:\n\n' + url + '\n\nO aviso de conclusão aparece nas notificações; clicar nele mostra o arquivo no Finder.',
+    });
   }
   const total = found.length;
   shown = found.slice(0, MAX_ROWS);
@@ -179,11 +191,12 @@ function showPreview() {
 
 function choose(copyOnly) {
   const it = shown[sel];
-  if (it) window.clcl.choose(it.id, !!copyOnly);
+  if (it && it.download) window.clcl.download(it.download);
+  else if (it) window.clcl.choose(it.id, !!copyOnly);
 }
 
 // abre o editor da arvore, ja no item selecionado quando ele e um item salvo
-function openEditor() { window.clcl.edit(shown[sel] ? shown[sel].id : -1); }
+function openEditor() { window.clcl.edit(shown[sel] && !shown[sel].download ? shown[sel].id : -1); }
 document.getElementById('edit').addEventListener('click', (ev) => { ev.preventDefault(); openEditor(); });
 q.addEventListener('input', search);
 window.addEventListener('keydown', (ev) => {

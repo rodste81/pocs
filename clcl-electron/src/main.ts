@@ -19,6 +19,7 @@ import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { downloadVideo, findYtDlp, parseVideoUrl } from './download';
 import * as icons from './icons';
 import { parseRegist } from './regist';
 import * as store from './store';
@@ -546,7 +547,37 @@ function registerEditorIpc(): void {
   });
 }
 
+// Baixa o video do link para a pasta Downloads e avisa por notificacao.
+async function startVideoDownload(input: string): Promise<void> {
+  const url = parseVideoUrl(input);
+  if (!url) return;
+  if (!findYtDlp()) {
+    log('download: yt-dlp nao encontrado');
+    dialog.showErrorBox('CLCL', 'Para baixar vídeos é preciso instalar o yt-dlp.\n\nNo Terminal:\n    brew install yt-dlp ffmpeg\n\nDepois é só colar o link de novo.');
+    return;
+  }
+  log('download: inicio', url.hostname);
+  notify(`Baixando o vídeo de ${url.hostname}…`);
+  const res = await downloadVideo(input, app.getPath('downloads'));
+  if (res.ok && res.file) {
+    log('download: ok', path.basename(res.file));
+    const file = res.file;
+    if (Notification.isSupported()) {
+      const n = new Notification({ title: 'CLCL — vídeo salvo em Downloads', body: path.basename(file) });
+      n.on('click', () => shell.showItemInFolder(file));
+      n.show();
+    }
+  } else {
+    log('download: falhou', res.error);
+    notify(`Não consegui baixar o vídeo: ${res.error ?? 'erro desconhecido'}`);
+  }
+}
+
 function registerSearchIpc(): void {
+  ipcMain.on('search:download', (_ev, url: unknown) => {
+    hideSearch(true);
+    if (typeof url === 'string') void startVideoDownload(url);
+  });
   ipcMain.handle('search:items', () => buildSearchItems());
   ipcMain.on('search:close', () => hideSearch(true));
   ipcMain.on('search:choose', (_ev, id: unknown, copyOnly: unknown) => {
