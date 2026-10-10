@@ -15,7 +15,7 @@ App Electron + TypeScript: bandeja, três atalhos globais, menus nativos e uma j
 
 Na busca, um link (`http(s)://…`) colado sozinho vira a opção "Baixar o vídeo deste link para Downloads": `src/download.ts` chama o `yt-dlp` instalado na máquina (procura em `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` e no PATH; o link vai depois de `--`, sem shell). Requer `brew install yt-dlp ffmpeg`. O resultado sai em notificação; clicar nela mostra o arquivo no Finder.
 
-Os atalhos ficam em `config.json` (`hotkeyTemplates`, `hotkeyHistory`, `hotkeySearch`). Eram Control+Q/W/E até 2026-10-09; um `config.json` antigo com esses valores é migrado sozinho na abertura.
+Os atalhos ficam em `config.json` (`hotkeyTemplates`, `hotkeyHistory`, `hotkeySearch`). O padrão é Control+2/3/4; o app não altera os atalhos que estiverem no `config.json` (a migração automática de Q/W/E foi removida em 2026-10-10).
 
 - `src/regist.ts`: importador do `regist.dat` (port de `File.c: file_file_to_item`). Usa `UNICODE TEXT` (UTF-16LE) quando existe, senão `TEXT` (windows-1252). Converte CRLF em LF. A pasta-raiz única (`Top_Clips`) vira o nível de cima do menu.
 - `src/main.ts`: bandeja, atalhos, polling do clipboard (300 ms), menus, colar com ⌘V via `osascript`.
