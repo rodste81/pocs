@@ -464,6 +464,7 @@ function toggleSearch(): void {
   searchShownAt = Date.now();
   if (openMenu) runRemoteCommandClose();
   hidePanelMenu('abrindo a busca');
+  ensureFloating(win, 'busca');
   win.show();
   win.focus();
   win.webContents.send('search:show');
@@ -659,6 +660,20 @@ const floatingOptions: Electron.BrowserWindowConstructorOptions = isMac ? { type
 function floatOverEverything(win: BrowserWindow): void {
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+}
+
+// Reaplicado antes de cada abertura: se a janela perder a marca de "aparece em todas as
+// mesas / por cima de tela cheia", ela abriria numa mesa que o usuario nao esta vendo.
+// O log registra quando a marca estava perdida, para confirmar se e essa a causa.
+function ensureFloating(win: BrowserWindow, name: string): void {
+  let onAll = true;
+  try {
+    onAll = win.isVisibleOnAllWorkspaces();
+  } catch {
+    /* so existe no macOS e no Linux */
+  }
+  if (!onAll) log('***', name, 'tinha perdido a marca de todas as mesas; reaplicando');
+  floatOverEverything(win);
 }
 
 // ---- abertura do menu ----
@@ -927,6 +942,7 @@ function openPanelMenu(kind: string): void {
   const area = screen.getDisplayNearestPoint(pt).bounds; // a janela cobre a tela; as colunas do menu flutuam dentro dela
   panelKind = kind;
   panelShownAt = Date.now();
+  ensureFloating(win, 'painel');
   win.setBounds(area);
   win.webContents.send('menu:show', {
     rows: model.rows,
@@ -937,7 +953,7 @@ function openPanelMenu(kind: string): void {
   });
   win.show();
   win.focus();
-  log('painel', kind, model.rows.length, 'linhas em', pt.x, pt.y);
+  log('painel', kind, model.rows.length, 'linhas em', pt.x, pt.y, 'tela', `${area.x},${area.y} ${area.width}x${area.height}`);
   setTimeout(() => {
     if (!win.isDestroyed() && win.isVisible() && panelKind === kind) log('painel aberto, focado =', win.isFocused());
   }, 200);
