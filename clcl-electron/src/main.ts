@@ -890,11 +890,26 @@ function createMenuWindow(): void {
   menuWin.webContents.on('render-process-gone', (_e, d) => log('painel: renderer caiu', d.reason));
 }
 
-function hidePanelMenu(why: string): void {
-  if (!menuWin || menuWin.isDestroyed() || !menuWin.isVisible()) return;
-  menuWin.hide();
+// `cleared` = a janela ja apagou o menu e redesenhou (caminho do Esc, clique e escolha).
+// Nos outros casos pedimos para apagar e so entao escondemos, para a proxima abertura
+// nao mostrar por um instante o menu antigo na posicao antiga.
+let panelHideTimer: NodeJS.Timeout | undefined;
+function finishPanelHide(): void {
+  clearTimeout(panelHideTimer);
+  panelHideTimer = undefined;
+  if (menuWin && !menuWin.isDestroyed() && !panelKind) menuWin.hide();
+}
+function hidePanelMenu(why: string, cleared = false): void {
+  if (!menuWin || menuWin.isDestroyed() || !menuWin.isVisible() || !panelKind) return;
   log('painel fechado', `(${why})`, panelKind);
   panelKind = '';
+  if (cleared) {
+    finishPanelHide();
+    return;
+  }
+  menuWin.webContents.send('menu:clear');
+  clearTimeout(panelHideTimer);
+  panelHideTimer = setTimeout(finishPanelHide, 90); // se a janela nao responder, esconde mesmo assim
 }
 
 function openPanelMenu(kind: string): void {
@@ -904,6 +919,8 @@ function openPanelMenu(kind: string): void {
     hidePanelMenu('mesmo atalho');
     return;
   }
+  clearTimeout(panelHideTimer); // reabrindo antes de terminar de esconder
+  panelHideTimer = undefined;
   const model = kind === 'salvos' ? buildSavedModel() : buildHistoryModel();
   panelActions = model.actions;
   const pt = screen.getCursorScreenPoint();
@@ -927,11 +944,12 @@ function openPanelMenu(kind: string): void {
 }
 
 function registerMenuIpc(): void {
-  ipcMain.on('menu:close', () => hidePanelMenu('esc ou clique fora'));
+  ipcMain.on('menu:close', () => hidePanelMenu('esc ou clique fora', true));
+  ipcMain.on('menu:cleared', () => finishPanelHide());
   ipcMain.on('menu:shown', () => undefined);
   ipcMain.on('menu:choose', (_ev, id: unknown, copyOnly: unknown) => {
     const action = typeof id === 'number' ? panelActions[id] : undefined;
-    hidePanelMenu('item escolhido');
+    hidePanelMenu('item escolhido', true);
     if (action) action(copyOnly === true);
   });
 }

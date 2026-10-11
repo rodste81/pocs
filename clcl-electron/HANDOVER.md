@@ -38,7 +38,7 @@ npm run install-mac      # gera CLCL.app (electron-builder), assina ad-hoc e cop
 ```
 
 `npm start` e o `CLCL.app` usam a mesma pasta de dados (`~/Library/Application Support/clcl-electron/`).
-A assinatura é ad-hoc: a cada reinstalação o macOS pede a permissão de Acessibilidade de novo.
+Assinatura: o `install-mac.sh` cria uma única vez o certificado próprio `CLCL Local Signing` no chaveiro de login (openssl + `security import`) e assina sempre com ele, para a identidade do app não mudar entre instalações e o macOS manter Acessibilidade/Automação. Se criar ou assinar falhar, cai para ad-hoc (e aí zera as permissões a cada instalação, como antes). O marcador `.assinado-com-certificado` na pasta de dados indica que as permissões já foram concedidas à identidade estável. A lógica foi testada no Linux com comandos simulados; no macOS falta confirmar.
 
 ## Testado / não testado
 

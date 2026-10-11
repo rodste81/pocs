@@ -191,9 +191,18 @@ function move(delta) {
   }
 }
 
+// Antes de a janela ser escondida, o menu e apagado e a tela redesenhada. Sem isso, na
+// proxima abertura a janela mostraria por um instante o menu antigo, na posicao antiga.
+function clearThen(fn) {
+  closeFrom(0);
+  cols = [];
+  requestAnimationFrame(() => requestAnimationFrame(fn));
+}
+function dismiss() { clearThen(() => window.clclMenu.close()); }
+
 function choose(r, copyOnly) {
   if (r.id === undefined) return;
-  window.clclMenu.choose(r.id, !!copyOnly);
+  clearThen(() => window.clclMenu.choose(r.id, !!copyOnly));
 }
 
 function typeSelect(ch) {
@@ -222,14 +231,15 @@ window.addEventListener('keydown', (ev) => {
   else if (ev.key === 'ArrowRight') { if (r && r.rows) openChild(active, true); }
   else if (ev.key === 'ArrowLeft') { if (active > 0) { const p = active - 1; closeFrom(active); active = p; } }
   else if (ev.key === 'Enter') { if (r && r.rows) openChild(active, true); else if (r) choose(r, ev.shiftKey); }
-  else if (ev.key === 'Escape') window.clclMenu.close();
+  else if (ev.key === 'Escape') dismiss();
   else if (ev.key.length === 1 && !ev.metaKey && !ev.ctrlKey && !ev.altKey) typeSelect(ev.key);
   else return;
   ev.preventDefault();
 });
 // clique fora das colunas fecha o menu, como num menu do sistema
-window.addEventListener('click', () => window.clclMenu.close());
-window.addEventListener('contextmenu', (ev) => { ev.preventDefault(); window.clclMenu.close(); });
+window.addEventListener('click', dismiss);
+window.addEventListener('contextmenu', (ev) => { ev.preventDefault(); dismiss(); });
+window.clclMenu.onClear(() => clearThen(() => window.clclMenu.cleared()));
 
 window.clclMenu.onShow((m) => {
   closeFrom(0);
