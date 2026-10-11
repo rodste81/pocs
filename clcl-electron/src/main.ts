@@ -37,6 +37,7 @@ let tray: Tray | undefined;
 let anchor: BrowserWindow | undefined;
 let searchWin: BrowserWindow | undefined;
 let editorWin: BrowserWindow | undefined;
+let menuWin: BrowserWindow | undefined;
 let openMenu: Menu | undefined; // referencia viva enquanto o menu esta aberto (evita coleta pelo GC)
 let openKind = '';
 let searchShownAt = 0;
@@ -193,6 +194,7 @@ const thumbFile = (e: store.HistoryImage): string => path.join(store.imagesDir()
 function removeImageFiles(e: store.HistoryEntry): void {
   if (typeof e === 'string') return;
   thumbCache.delete(e.image);
+  thumbUrlCache.delete(e.image);
   for (const f of [path.join(store.imagesDir(), e.image), thumbFile(e)]) {
     try {
       fs.unlinkSync(f);
@@ -322,6 +324,7 @@ const getItemIcon = (): Electron.NativeImage => (itemIcon ??= menuIcon(icons.DOC
 function setTemplates(root: TemplateNode[], fromEditor = false): void {
   templates = root;
   templatesMenu = undefined;
+  savedModel = undefined;
   store.saveTemplates(root);
   // mudou por fora do editor (menu "Salvar clipboard", importacao): o editor recarrega
   if (!fromEditor && editorWin && !editorWin.isDestroyed()) editorWin.webContents.send('editor:reload');
@@ -460,6 +463,7 @@ function toggleSearch(): void {
   win.setPosition(Math.round(area.x + (area.width - w) / 2), Math.round(area.y + (area.height - h) / 3));
   searchShownAt = Date.now();
   if (openMenu) runRemoteCommandClose();
+  hidePanelMenu('abrindo a busca');
   win.show();
   win.focus();
   win.webContents.send('search:show');
@@ -664,7 +668,7 @@ function floatOverEverything(win: BrowserWindow): void {
 //   activate - ativa o CLCL antes de abrir e devolve o foco ao fechar
 //   tray     - abre o menu preso ao icone da barra de menus (nao segue o cursor)
 type PopupMode = store.Config['popupMode'];
-const POPUP_MODES: PopupMode[] = ['anchor', 'activate', 'tray'];
+const POPUP_MODES: PopupMode[] = ['panel', 'anchor', 'activate', 'tray'];
 let menuToken = 0;
 let menuShown = false;
 let menuMode: PopupMode = 'anchor';
@@ -758,8 +762,188 @@ function showMenu(build: () => Menu, kind: string, mode: PopupMode): void {
   }
 }
 
+// ---- menu em janela propria (modo "panel") ----
+// Os menus sao desenhados numa janela-painel (ui/menu.html) em vez do menu nativo.
+// O painel recebe o teclado sem ativar o CLCL, entao nao tira o usuario de um app em
+// tela cheia, e os atalhos continuam funcionando com o menu aberto.
+interface MenuRow {
+  t: 'item' | 'sep';
+  label?: string;
+  icon?: 'folder' | 'doc';
+  thumb?: string;
+  tip?: string;
+  id?: number;
+  off?: boolean;
+  rows?: MenuRow[];
+}
+type MenuAction = (copyOnly: boolean) => void;
+interface MenuModel {
+  rows: MenuRow[];
+  actions: MenuAction[];
+}
+let savedModel: MenuModel | undefined; // cache: refeito quando os itens salvos mudam
+let panelActions: MenuAction[] = [];
+let panelKind = '';
+let panelShownAt = 0;
+const thumbUrlCache = new Map<string, string>();
+
+const plain = (text: string, title = ''): string => label(text, title).replace(/&&/g, '&');
+
+function buildSavedModel(): MenuModel {
+  if (savedModel) return savedModel;
+  const actions: MenuAction[] = [];
+  const act = (fn: MenuAction): number => actions.push(fn) - 1;
+  const entries = (nodes: TemplateNode[]): MenuRow[] =>
+    nodes.map((n): MenuRow => {
+      if (n.type === 'folder') return { t: 'item', label: n.title || '(sem nome)', icon: 'folder', rows: entries(n.children) };
+      return { t: 'item', label: plain(n.text, n.title), icon: 'doc', tip: tooltip(n.text), id: act((copyOnly) => useText(n.text, copyOnly, true)) };
+    });
+  const targets = (nodes: TemplateNode[]): MenuRow[] => {
+    const folders = nodes.filter((n): n is TemplateFolder => n.type === 'folder');
+    const out: MenuRow[] = [{ t: 'item', label: 'Salvar aqui', id: act(() => saveClipboardInto(nodes)) }];
+    if (folders.length) out.push({ t: 'sep' });
+    for (const f of folders) out.push({ t: 'item', label: f.title || '(sem nome)', icon: 'folder', rows: targets(f.children) });
+    return out;
+  };
+  const rows = entries(templates);
+  if (!rows.length) rows.push({ t: 'item', label: '(nenhum item salvo)', off: true });
+  rows.push(
+    { t: 'sep' },
+    { t: 'item', label: 'Salvar clipboard atual em', rows: targets(templates) },
+    { t: 'item', label: 'Editar itens salvos…', id: act(() => openEditor()) },
+  );
+  savedModel = { rows, actions };
+  return savedModel;
+}
+
+function thumbUrl(e: store.HistoryImage): string | undefined {
+  let url = thumbUrlCache.get(e.image);
+  if (!url) {
+    const img = menuThumb(e);
+    if (!img) return undefined;
+    url = img.toDataURL();
+    thumbUrlCache.set(e.image, url);
+  }
+  return url;
+}
+
+function buildHistoryModel(): MenuModel {
+  const actions: MenuAction[] = [];
+  const act = (fn: MenuAction): number => actions.push(fn) - 1;
+  const rows: MenuRow[] = history.map((e, i): MenuRow => {
+    if (typeof e === 'string') {
+      return { t: 'item', label: `${i + 1}. ${plain(e)}`, tip: tooltip(e), id: act((copyOnly) => useText(e, copyOnly, false)) };
+    }
+    return {
+      t: 'item',
+      label: `${i + 1}. [Imagem ${e.width}×${e.height}]`,
+      thumb: thumbUrl(e),
+      id: act((copyOnly) => void useImage(e, copyOnly)),
+    };
+  });
+  if (!rows.length) rows.push({ t: 'item', label: '(histórico vazio)', off: true });
+  rows.push({ t: 'sep' });
+  rows.push({
+    t: 'item',
+    label: 'Limpar histórico',
+    off: history.length === 0,
+    id: act(() => {
+      history.forEach(removeImageFiles);
+      history = [];
+      store.saveHistory(history);
+    }),
+  });
+  return { rows, actions };
+}
+
+function createMenuWindow(): void {
+  menuWin = new BrowserWindow({
+    width: 400,
+    height: 300,
+    show: false,
+    frame: false,
+    transparent: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    ...floatingOptions,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'ui', 'menu-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  floatOverEverything(menuWin);
+  void menuWin.loadFile(path.join(__dirname, '..', 'ui', 'menu.html'));
+  menuWin.on('blur', () => {
+    if (Date.now() - panelShownAt > 300) hidePanelMenu('perdeu o foco');
+  });
+  menuWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  menuWin.webContents.on('will-navigate', (ev) => ev.preventDefault());
+  menuWin.webContents.on('did-fail-load', (_e, code, desc) => log('painel: falha ao carregar', code, desc));
+  menuWin.webContents.on('render-process-gone', (_e, d) => log('painel: renderer caiu', d.reason));
+}
+
+function hidePanelMenu(why: string): void {
+  if (!menuWin || menuWin.isDestroyed() || !menuWin.isVisible()) return;
+  menuWin.hide();
+  log('painel fechado', `(${why})`, panelKind);
+  panelKind = '';
+}
+
+function openPanelMenu(kind: string): void {
+  if (!menuWin || menuWin.isDestroyed()) createMenuWindow();
+  const win = menuWin!;
+  if (win.isVisible() && panelKind === kind) {
+    hidePanelMenu('mesmo atalho');
+    return;
+  }
+  const model = kind === 'salvos' ? buildSavedModel() : buildHistoryModel();
+  panelActions = model.actions;
+  const pt = screen.getCursorScreenPoint();
+  const area = screen.getDisplayNearestPoint(pt).bounds; // a janela cobre a tela; as colunas do menu flutuam dentro dela
+  panelKind = kind;
+  panelShownAt = Date.now();
+  win.setBounds(area);
+  win.webContents.send('menu:show', {
+    rows: model.rows,
+    x: pt.x - area.x,
+    y: pt.y - area.y,
+    fontSize: Math.min(22, Math.max(9, Number(cfg.menuFontSize) || 13)),
+    thumbHeight: Math.min(store.THUMB_MAX, Math.max(16, Math.round(cfg.menuImageHeight) || 48)),
+  });
+  win.show();
+  win.focus();
+  log('painel', kind, model.rows.length, 'linhas em', pt.x, pt.y);
+  setTimeout(() => {
+    if (!win.isDestroyed() && win.isVisible() && panelKind === kind) log('painel aberto, focado =', win.isFocused());
+  }, 200);
+}
+
+function registerMenuIpc(): void {
+  ipcMain.on('menu:close', () => hidePanelMenu('esc ou clique fora'));
+  ipcMain.on('menu:shown', () => undefined);
+  ipcMain.on('menu:choose', (_ev, id: unknown, copyOnly: unknown) => {
+    const action = typeof id === 'number' ? panelActions[id] : undefined;
+    hidePanelMenu('item escolhido');
+    if (action) action(copyOnly === true);
+  });
+}
+
 // `kind` identifica o menu: o mesmo atalho de novo fecha; outro atalho troca de menu.
 function popupAtCursor(build: () => Menu, kind: string, mode: PopupMode = cfg.popupMode): void {
+  if (mode === 'panel') {
+    if (openMenu) dismissOpenMenu();
+    openPanelMenu(kind);
+    return;
+  }
+  hidePanelMenu('outro modo');
   if (openMenu) {
     const same = openKind === kind;
     const token = menuToken;
@@ -793,6 +977,7 @@ function runRemoteCommand(line: string): void {
     const token = menuToken;
     dismissOpenMenu();
     menuClosed(token, 'comando');
+    hidePanelMenu('comando');
     hideSearch(false);
   } else if (cmd === 'set' && a === 'popupMode' && POPUP_MODES.includes(b as PopupMode)) {
     cfg.popupMode = b as PopupMode;
@@ -854,6 +1039,7 @@ function createTray(): void {
         click: () => {
           templates = store.loadTemplates();
           templatesMenu = undefined;
+          savedModel = undefined;
         },
       },
       { label: 'Abrir pasta de dados', click: () => void shell.openPath(app.getPath('userData')) },
@@ -920,6 +1106,8 @@ if (!app.requestSingleInstanceLock()) {
     fs.rmSync(pasteTmpDir(), { recursive: true, force: true });
     lastSeen = clipboard.readText();
     createAnchor();
+    createMenuWindow();
+    registerMenuIpc();
     registerSearchIpc();
     registerEditorIpc();
     setAppMenu();

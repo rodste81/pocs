@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>CLCL — menu</title>
+<style>
+  :root {
+    --bg: rgba(246, 246, 244, 0.98); --line: rgba(0, 0, 0, 0.14); --text: #1c1c1a; --dim: #77776f;
+    --sel: #1f5fbf; --sel-text: #ffffff; --folder: #c98a12; --item: #77776f;
+    --shadow: 0 8px 28px rgba(0, 0, 0, 0.28), 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+    --fs: 13px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: rgba(40, 40, 38, 0.98); --line: rgba(255, 255, 255, 0.14); --text: #ecece8; --dim: #a0a098;
+      --sel: #2f6fd6; --sel-text: #ffffff; --folder: #e0aa3e; --item: #a0a098;
+      --shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(255, 255, 255, 0.22);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: transparent; overflow: hidden; }
+  body { font: var(--fs)/1.25 -apple-system, "Segoe UI", system-ui, sans-serif; color: var(--text); cursor: default; user-select: none; }
+  .col {
+    position: absolute; min-width: 180px; max-width: 460px; padding: 5px;
+    background: var(--bg); border-radius: 8px; box-shadow: var(--shadow); overflow-y: auto; overscroll-behavior: contain;
+  }
+  .row { display: flex; align-items: center; gap: 7px; padding: 3px 8px; border-radius: 5px; white-space: nowrap; min-height: calc(var(--fs) + 9px); }
+  .row .lbl { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .row .arrow { color: var(--dim); font-size: 0.85em; margin-left: 10px; }
+  .row svg { width: 1.15em; height: 1.15em; flex: none; }
+  .row .ic-folder { fill: var(--folder); }
+  .row .ic-doc { fill: none; stroke: var(--item); stroke-width: 1.3; }
+  .row img { flex: none; border-radius: 3px; max-width: 260px; object-fit: contain; }
+  .row.sel { background: var(--sel); color: var(--sel-text); }
+  .row.sel .arrow { color: var(--sel-text); }
+  .row.sel .ic-folder { fill: var(--sel-text); }
+  .row.sel .ic-doc { stroke: var(--sel-text); }
+  .row.open:not(.sel) { background: var(--line); }
+  .row.off { color: var(--dim); }
+  .sep { height: 1px; background: var(--line); margin: 5px 8px; }
+</style>
+</head>
+<body>
+<script>
+const SVG_FOLDER = '<svg viewBox="0 0 16 16" class="ic-folder"><path d="M1.5 3.6c0-.6.5-1.1 1.1-1.1h3.2c.3 0 .6.1.8.4l.9 1.1h5.9c.6 0 1.1.5 1.1 1.1v7.3c0 .6-.5 1.1-1.1 1.1H2.6c-.6 0-1.1-.5-1.1-1.1z"/></svg>';
+const SVG_DOC = '<svg viewBox="0 0 16 16" class="ic-doc"><path d="M4 1.8h5.2l3 3v9.4H4z"/><path d="M9 2v3h3M6 8.2h4.2M6 10.6h4.2"/></svg>';
+const MARGIN = 6;
+const HOVER_OPEN_MS = 140;
+
+let cols = [];        // [{ rows, el, sel, openIdx }]
+let active = 0;       // coluna que recebe o teclado
+let hoverTimer = null;
+let lastMouse = null;
+let typed = '';
+let typedAt = 0;
+let thumbH = 32;
+
+const fold = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const usable = (r) => r && r.t !== 'sep' && !r.off;
+
+function closeFrom(level) {
+  clearTimeout(hoverTimer);
+  for (const c of cols.splice(level)) c.el.remove();
+  if (cols[level - 1]) {
+    const p = cols[level - 1];
+    if (p.openIdx >= 0) p.el.children[p.openIdx]?.classList.remove('open');
+    p.openIdx = -1;
+  }
+  if (active >= cols.length) active = Math.max(0, cols.length - 1);
+}
+
+function makeColumn(rows) {
+  const el = document.createElement('div');
+  el.className = 'col';
+  const level = cols.length;
+  rows.forEach((r, i) => {
+    if (r.t === 'sep') {
+      const s = document.createElement('div');
+      s.className = 'sep';
+      el.appendChild(s);
+      return;
+    }
+    const row = document.createElement('div');
+    row.className = 'row' + (r.off ? ' off' : '');
+    if (r.thumb) {
+      const img = document.createElement('img');
+      img.src = r.thumb;
+      img.style.height = thumbH + 'px';
+      row.appendChild(img);
+    } else if (r.icon === 'folder' || r.icon === 'doc') {
+      const tmp = document.createElement('span');
+      tmp.innerHTML = r.icon === 'folder' ? SVG_FOLDER : SVG_DOC;
+      row.appendChild(tmp.firstChild);
+    }
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = r.label;
+    row.appendChild(lbl);
+    if (r.rows) {
+      const a = document.createElement('span');
+      a.className = 'arrow';
+      a.textContent = '▸';
+      row.appendChild(a);
+    }
+    if (r.tip) row.title = r.tip;
+    row.addEventListener('mousemove', (ev) => {
+      if (lastMouse && lastMouse.x === ev.screenX && lastMouse.y === ev.screenY) return; // o cursor nao se moveu
+      lastMouse = { x: ev.screenX, y: ev.screenY };
+      if (!usable(r)) return;
+      hover(level, i);
+    });
+    row.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (!usable(r)) return;
+      select(level, i);
+      if (r.rows) openChild(level, false);
+      else choose(r, ev.shiftKey);
+    });
+    el.appendChild(row);
+  });
+  el.addEventListener('click', (ev) => ev.stopPropagation());
+  document.body.appendChild(el);
+  const col = { rows, el, sel: -1, openIdx: -1 };
+  cols.push(col);
+  return col;
+}
+
+function place(col, x, y, parentRect) {
+  const W = window.innerWidth, H = window.innerHeight;
+  col.el.style.maxHeight = (H - 2 * MARGIN) + 'px';
+  const w = col.el.offsetWidth, h = col.el.offsetHeight;
+  if (parentRect) {
+    x = parentRect.right - 3;
+    if (x + w > W - MARGIN) x = parentRect.left - w + 3; // sem espaco a direita: abre para a esquerda
+  } else if (x + w > W - MARGIN) x = x - w;
+  if (y + h > H - MARGIN) y = H - MARGIN - h;
+  col.el.style.left = Math.max(MARGIN, x) + 'px';
+  col.el.style.top = Math.max(MARGIN, y) + 'px';
+}
+
+function select(level, idx) {
+  const col = cols[level];
+  if (!col) return;
+  if (col.sel >= 0) col.el.children[col.sel]?.classList.remove('sel');
+  col.sel = idx;
+  if (idx >= 0) {
+    const row = col.el.children[idx];
+    row.classList.add('sel');
+    row.scrollIntoView({ block: 'nearest' });
+  }
+  active = level;
+  if (col.openIdx !== idx) closeFrom(level + 1);
+}
+
+function hover(level, idx) {
+  select(level, idx);
+  clearTimeout(hoverTimer);
+  if (cols[level].rows[idx].rows) hoverTimer = setTimeout(() => openChild(level, false), HOVER_OPEN_MS);
+}
+
+function openChild(level, focusChild) {
+  const col = cols[level];
+  const r = col.rows[col.sel];
+  if (!r || !r.rows) return;
+  if (col.openIdx !== col.sel) {
+    closeFrom(level + 1);
+    const rowEl = col.el.children[col.sel];
+    rowEl.classList.add('open');
+    col.openIdx = col.sel;
+    const rect = rowEl.getBoundingClientRect();
+    const colRect = col.el.getBoundingClientRect();
+    const child = makeColumn(r.rows.length ? r.rows : [{ t: 'item', label: '(vazia)', off: true }]);
+    place(child, 0, rect.top - 5, { left: colRect.left, right: colRect.right });
+  }
+  if (focusChild) {
+    const first = cols[level + 1].rows.findIndex(usable);
+    select(level + 1, first);
+  }
+}
+
+function move(delta) {
+  const col = cols[active];
+  if (!col) return;
+  const n = col.rows.length;
+  let i = col.sel;
+  for (let k = 0; k < n; k++) {
+    i = (i + delta + n) % n;
+    if (i < 0) i = delta > 0 ? 0 : n - 1;
+    if (usable(col.rows[i])) { select(active, i); return; }
+  }
+}
+
+function choose(r, copyOnly) {
+  if (r.id === undefined) return;
+  window.clclMenu.choose(r.id, !!copyOnly);
+}
+
+function typeSelect(ch) {
+  const now = Date.now();
+  typed = now - typedAt > 800 ? ch : typed + ch;
+  typedAt = now;
+  const col = cols[active];
+  const want = fold(typed);
+  const n = col.rows.length;
+  const start = typed.length === 1 ? col.sel + 1 : Math.max(col.sel, 0);
+  for (let k = 0; k < n; k++) {
+    const i = (start + k) % n;
+    const r = col.rows[i];
+    if (usable(r) && fold(r.label).startsWith(want)) { select(active, i); return; }
+  }
+}
+
+window.addEventListener('keydown', (ev) => {
+  const col = cols[active];
+  if (!col) return;
+  const r = col.rows[col.sel];
+  if (ev.key === 'ArrowDown') move(1);
+  else if (ev.key === 'ArrowUp') move(-1);
+  else if (ev.key === 'Home') { col.sel = -1; move(1); }
+  else if (ev.key === 'End') { col.sel = 0; move(-1); }
+  else if (ev.key === 'ArrowRight') { if (r && r.rows) openChild(active, true); }
+  else if (ev.key === 'ArrowLeft') { if (active > 0) { const p = active - 1; closeFrom(active); active = p; } }
+  else if (ev.key === 'Enter') { if (r && r.rows) openChild(active, true); else if (r) choose(r, ev.shiftKey); }
+  else if (ev.key === 'Escape') window.clclMenu.close();
+  else if (ev.key.length === 1 && !ev.metaKey && !ev.ctrlKey && !ev.altKey) typeSelect(ev.key);
+  else return;
+  ev.preventDefault();
+});
+// clique fora das colunas fecha o menu, como num menu do sistema
+window.addEventListener('click', () => window.clclMenu.close());
+window.addEventListener('contextmenu', (ev) => { ev.preventDefault(); window.clclMenu.close(); });
+
+window.clclMenu.onShow((m) => {
+  closeFrom(0);
+  cols = [];
+  active = 0;
+  typed = '';
+  lastMouse = null;
+  thumbH = m.thumbHeight || 32;
+  document.documentElement.style.setProperty('--fs', (m.fontSize || 13) + 'px');
+  const col = makeColumn(m.rows);
+  place(col, m.x, m.y, null);
+  window.clclMenu.shown();
+});
+</script>
+</body>
+</html>

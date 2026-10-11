@@ -12,13 +12,16 @@ export interface Config {
   autoPaste: boolean;
   menuImageHeight: number; // altura (px) da miniatura das imagens no menu, de 16 a 256
   registPath: string; // regist.dat usado na primeira carga
-  popupMode: 'anchor' | 'activate' | 'tray'; // como o menu e aberto (ver popupAtCursor)
+  popupMode: 'panel' | 'anchor' | 'activate' | 'tray'; // como o menu e aberto (ver popupAtCursor)
+  menuFontSize: number; // tamanho da letra do menu no modo panel (px)
   popupFallback: boolean; // se o menu nao abrir, tenta o proximo modo sozinho
   remoteCommands: boolean; // aceita comandos de teste pelo arquivo clcl-cmd.txt
   hotkeysVersion: number; // controle interno: ver HOTKEYS_VERSION
+  popupVersion: number; // controle interno: ver POPUP_VERSION
 }
 
 const HOTKEYS_VERSION = 2;
+const POPUP_VERSION = 2;
 
 const defaults: Config = {
   hotkeyTemplates: 'Control+Q',
@@ -29,10 +32,12 @@ const defaults: Config = {
   autoPaste: true,
   menuImageHeight: 48,
   registPath: '',
-  popupMode: 'activate',
+  popupMode: 'panel',
+  menuFontSize: 13,
   popupFallback: false,
   remoteCommands: true,
   hotkeysVersion: 0,
+  popupVersion: 0,
 };
 
 const file = (name: string): string => path.join(app.getPath('userData'), name);
@@ -70,7 +75,13 @@ export function loadConfig(): Config {
     cfg.hotkeySearch = defaults.hotkeySearch;
     cfg.hotkeysVersion = HOTKEYS_VERSION;
   }
-  if (!saved || resetHotkeys || Object.keys(defaults).some((k) => !(k in saved))) writeJson('config.json', cfg);
+  // Troca unica do modo de abertura do menu para o padrao atual (panel).
+  const resetPopup = cfg.popupVersion !== POPUP_VERSION;
+  if (resetPopup) {
+    cfg.popupMode = defaults.popupMode;
+    cfg.popupVersion = POPUP_VERSION;
+  }
+  if (!saved || resetHotkeys || resetPopup || Object.keys(defaults).some((k) => !(k in saved))) writeJson('config.json', cfg);
   return cfg;
 }
 
