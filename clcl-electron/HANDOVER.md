@@ -50,6 +50,7 @@ Assinatura: o `install-mac.sh` cria uma única vez o certificado próprio `CLCL 
 
 ## Pendências
 
+- "Limpar todo o histórico…" no menu do ícone da barra (logo após "Editar itens salvos…"), com confirmação Sim/Não; apaga textos e imagens do histórico, não os itens salvos.
 - Histórico guarda texto e imagens (PNG em `images/`, ex.: screenshot com ⌘⌃⇧4); a altura da miniatura no menu é `menuImageHeight` em `config.json` (16 a 256, padrão 48). Se o Finder (pasta ou mesa) está na frente ao escolher uma imagem, o app põe no clipboard um arquivo `Imagem AAAA-MM-DD HH.MM.SS.png` (via `osascript`), e o ⌘V cria o arquivo na pasta; nos outros apps cola a imagem. Arquivos copiados e RTF não entram; itens salvos (Control+Q) são só texto.
 - Expansão de `%d` / `%t` (port do `tool_text`); 96 itens importados contêm esses padrões.
 - Ícone próprio do app e assinatura com Developer ID (hoje é ad-hoc).

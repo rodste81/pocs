@@ -798,6 +798,25 @@ function setAppMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// Apaga todo o historico do clipboard (textos e imagens), depois de confirmar.
+async function confirmClearHistory(): Promise<void> {
+  const n = history.length;
+  if (!n) return;
+  const ans = await dialog.showMessageBox({
+    type: 'warning',
+    message: 'Limpar todo o histórico do clipboard?',
+    detail: `Os ${n} ${n === 1 ? 'item' : 'itens'} do histórico (textos e imagens) serão apagados. Os itens salvos não são afetados.`,
+    buttons: ['Não', 'Sim'],
+    defaultId: 0,
+    cancelId: 0,
+  });
+  if (ans.response !== 1) return;
+  history.forEach(removeImageFiles);
+  history = [];
+  store.saveHistory(history);
+  log('historico limpo pelo menu da barra:', n, 'itens');
+}
+
 // ---------- popup, bandeja, atalhos ----------
 
 // No macOS as janelas de apoio sao "panel": aparecem por cima de apps em tela cheia
@@ -1320,6 +1339,7 @@ function createTray(): void {
       { label: `Clipboard (${cfg.hotkeyHistory})`, click: () => setTimeout(() => popupAtCursor(buildHistoryMenu, 'clipboard'), 150) },
       { label: `Buscar… (${cfg.hotkeySearch})`, click: toggleSearch },
       { label: 'Editar itens salvos…', click: () => openEditor() },
+      { label: 'Limpar todo o histórico…', enabled: history.length > 0, click: () => void confirmClearHistory() },
       { type: 'separator' },
       { label: 'Importar regist.dat…', click: () => void importDialog() },
       {
