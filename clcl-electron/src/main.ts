@@ -468,19 +468,29 @@ function toggleSearch(): void {
   win.show();
   win.focus();
   win.webContents.send('search:show');
-  // o painel costuma receber o teclado sem ativar o app; se nao recebeu, ativa o app
+  // Nao ativamos o app (isso tiraria o usuario de um app em tela cheia). Se a busca
+  // abriu numa mesa que o usuario nao esta vendo, recriamos a janela na mesa ativa.
   setTimeout(() => {
     if (win.isDestroyed() || !win.isVisible()) return;
-    const focused = win.isFocused();
-    log('busca aberta, focada =', focused);
-    if (!focused) {
-      searchShownAt = Date.now();
-      if (isMac) app.focus({ steal: true });
-      win.focus();
-      setTimeout(() => log('busca: apos ativar o app, focada =', !win.isDestroyed() && win.isFocused()), 200);
-    }
+    log('busca aberta, focada =', win.isFocused());
+    void windowOnScreen(win).then((onScreen) => {
+      if (onScreen === undefined || win.isDestroyed() || !win.isVisible()) return;
+      log('busca na tela que o usuario ve =', onScreen ? 'sim' : 'NAO');
+      if (onScreen) {
+        searchRecreated = false;
+        return;
+      }
+      if (searchRecreated) return;
+      log('busca: recriando a janela na mesa ativa');
+      searchRecreated = true;
+      searchWin = undefined;
+      win.destroy();
+      createSearchWindow();
+      searchWin!.webContents.once('did-finish-load', () => toggleSearch());
+    });
   }, 150);
 }
+let searchRecreated = false;
 
 // ---------- editor da arvore de itens salvos (janela) ----------
 
@@ -927,6 +937,43 @@ function hidePanelMenu(why: string, cleared = false): void {
   panelHideTimer = setTimeout(finishPanelHide, 90); // se a janela nao responder, esconde mesmo assim
 }
 
+// ---- conferencia: a janela esta mesmo na tela que o usuario esta vendo? ----
+// O Electron so sabe se a janela esta "visivel" e "focada"; nao sabe se ela esta na mesa
+// (Space) que aparece na tela. O macOS sabe: a lista de janelas "na tela" do
+// CoreGraphics so traz as da mesa ativa. Perguntamos isso por um script JXA.
+const ONSCREEN_JXA = `
+ObjC.import('CoreGraphics');
+function run(argv) {
+  var pid = parseInt(argv[0], 10);
+  var list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(1 | 16, 0)));
+  var mine = (list || []).filter(function (w) { return w.kCGWindowOwnerPID === pid; });
+  return JSON.stringify(mine.map(function (w) { return w.kCGWindowBounds; }));
+}`;
+
+// Responde true/false se conseguiu verificar, ou undefined se a verificacao falhou.
+function windowOnScreen(win: BrowserWindow): Promise<boolean | undefined> {
+  if (!isMac || win.isDestroyed()) return Promise.resolve(undefined);
+  const b = win.getBounds();
+  return new Promise((resolve) => {
+    execFile('osascript', ['-l', 'JavaScript', '-e', ONSCREEN_JXA, String(process.pid)], { timeout: 3000 }, (err, stdout) => {
+      if (err) {
+        log('conferencia da tela falhou:', err.message.split('\n')[0]);
+        resolve(undefined);
+        return;
+      }
+      try {
+        const list = JSON.parse(String(stdout).trim()) as { X: number; Y: number; Width: number; Height: number }[];
+        resolve(list.some((r) => Math.abs(r.Width - b.width) < 2 && Math.abs(r.Height - b.height) < 2));
+      } catch {
+        log('conferencia da tela: resposta inesperada', String(stdout).slice(0, 120));
+        resolve(undefined);
+      }
+    });
+  });
+}
+
+let panelRecreated = false;
+
 function openPanelMenu(kind: string): void {
   if (!menuWin || menuWin.isDestroyed()) createMenuWindow();
   const win = menuWin!;
@@ -955,7 +1002,25 @@ function openPanelMenu(kind: string): void {
   win.focus();
   log('painel', kind, model.rows.length, 'linhas em', pt.x, pt.y, 'tela', `${area.x},${area.y} ${area.width}x${area.height}`);
   setTimeout(() => {
-    if (!win.isDestroyed() && win.isVisible() && panelKind === kind) log('painel aberto, focado =', win.isFocused());
+    if (win.isDestroyed() || !win.isVisible() || panelKind !== kind) return;
+    log('painel aberto, focado =', win.isFocused());
+    void windowOnScreen(win).then((onScreen) => {
+      if (onScreen === undefined || win.isDestroyed() || !win.isVisible() || panelKind !== kind) return;
+      log('painel na tela que o usuario ve =', onScreen ? 'sim' : 'NAO');
+      if (onScreen) {
+        panelRecreated = false;
+        return;
+      }
+      if (panelRecreated) return; // ja recriou uma vez para esta abertura: nao insiste
+      // A janela abriu em outra mesa. Uma janela nova, criada agora, nasce na mesa ativa.
+      log('painel: recriando a janela na mesa ativa');
+      panelRecreated = true;
+      panelKind = '';
+      menuWin = undefined;
+      win.destroy();
+      createMenuWindow();
+      menuWin!.webContents.once('did-finish-load', () => openPanelMenu(kind));
+    });
   }, 200);
 }
 
