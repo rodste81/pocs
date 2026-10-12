@@ -20,7 +20,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { downloadVideo, findYtDlp, parseVideoUrl } from './download';
-import { MULTI_IMAGE_MODES, MultiImageMode, pasteImagesAck, setClipboardImageItems } from './imagepaste';
+import { MULTI_IMAGE_MODES, MultiImageMode, pasteImagesAck, pressPasteKey, setClipboardImageItems } from './imagepaste';
 import * as icons from './icons';
 import { parseRegist } from './regist';
 import * as store from './store';
@@ -88,8 +88,11 @@ function canPaste(): boolean {
 
 function sendPasteKey(): void {
   if (isMac) {
-    execFile('osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down'], (err) => {
-      if (err) notify('Não consegui colar automaticamente; o texto está no clipboard (⌘V).');
+    // espera Shift/Control/Option/Command serem soltos: com Shift ainda apertado o Cmd+V
+    // vira "colar sem formatacao", que nao cola imagens
+    void pressPasteKey().then((r) => {
+      if (!r.ok) notify('Não consegui colar automaticamente; o conteúdo está no clipboard (⌘V).');
+      if (r.waitedMs > 40) log(`colar: esperou ${r.waitedMs} ms as teclas modificadoras serem soltas`);
     });
   } else if (process.platform === 'win32') {
     execFile('powershell', ['-NoProfile', '-Command', "(New-Object -ComObject WScript.Shell).SendKeys('^v')"]);
@@ -250,8 +253,12 @@ async function pasteImages(images: store.HistoryImage[], tag: string, forced?: M
   else if (mode === 'auto') mode = (await frontAppIsFinder()) ? 'files' : 'ack';
   const t0 = Date.now();
   if (mode === 'ack') {
-    const r = await pasteImagesAck(paths);
-    log(`${tag}: ${paths.length} imagens (ack): ${r.done} lidas pelo app, tempos ${JSON.stringify(r.times)} ms${r.err ? ' erro: ' + r.err : ''}`);
+    const r = await pasteImagesAck(paths, menuTargetApp || (await frontAppId()));
+    for (const n of r.notes) log(`${tag}: ${n}`);
+    log(
+      `${tag}: ${paths.length} imagens (ack): ${r.done} lidas pelo app, tempos ${JSON.stringify(r.times)} ms, ` +
+        `esperou ${r.waitedMs} ms as teclas modificadoras${r.err ? ' erro: ' + r.err : ''}`,
+    );
     if (r.done < paths.length) {
       // o app nao confirmou a leitura (ou o script falhou): o resto vai com espera fixa
       await pasteImagesOneByOne(paths.slice(r.done), tag);
