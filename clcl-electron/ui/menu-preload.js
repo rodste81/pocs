@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('clclMenu', {
   choose: (id, copyOnly) => ipcRenderer.send('menu:choose', id, copyOnly),
   chooseMany: (ids, copyOnly) => ipcRenderer.send('menu:chooseMany', ids, copyOnly),
   close: () => ipcRenderer.send('menu:close'),
+  debug: (msg) => ipcRenderer.send('menu:debug', String(msg).slice(0, 400)),
 });

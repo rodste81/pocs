@@ -216,9 +216,20 @@ function choose(r, copyOnly) {
 }
 
 // ---- varios itens (menu do clipboard) ----
-function renderPicks() {
+function describePicks() {
+  const col = cols[0];
+  return picked.map((i) => (col && col.rows[i] ? col.rows[i].label.slice(0, 24) : '?' + i)).join(' | ');
+}
+function renderPicks(why) {
   const col = cols[0];
   if (!col) return;
+  // a linha de ajuda mostra quantos itens estao marcados, para conferir antes do Enter
+  col.rows.forEach((r, i) => {
+    if (!r.hint) return;
+    const lbl = col.el.children[i] && col.el.children[i].querySelector('.lbl');
+    if (lbl) lbl.textContent = picked.length ? `${picked.length} marcado${picked.length > 1 ? 's' : ''} · Enter cola todos · ⌥ só copia` : r.label;
+  });
+  if (why) window.clclMenu.debug(`${why}: ${picked.length} marcados [${picked.join(',')}]`);
   [...col.el.children].forEach((el, i) => {
     el.classList.remove('picked');
     el.querySelector('.badge')?.remove();
@@ -236,7 +247,7 @@ function togglePick(i) {
   const n = picked.indexOf(i);
   if (n >= 0) picked.splice(n, 1);
   else picked.push(i);
-  renderPicks();
+  renderPicks('shift+clique ' + i);
 }
 // Shift+seta: inclui a linha de partida e a seguinte; voltando pelo mesmo caminho, desmarca.
 function extendPick(delta) {
@@ -247,12 +258,13 @@ function extendPick(delta) {
   if (!picked.length) picked.push(start);
   move(delta);
   const cur = col.sel;
-  if (!col.rows[cur] || !col.rows[cur].multi) { select(0, start); renderPicks(); return; } // nao sai da lista
+  if (!col.rows[cur] || !col.rows[cur].multi) { select(0, start); renderPicks('shift+seta no limite'); return; } // nao sai da lista
   if (picked.length >= 2 && picked[picked.length - 2] === cur) picked.pop();
   else if (!picked.includes(cur)) picked.push(cur);
-  renderPicks();
+  renderPicks('shift+seta ' + start + '->' + cur);
 }
 function chooseMany(copyOnly) {
+  window.clclMenu.debug(`colar ${picked.length} marcados: ${describePicks()}`);
   const ids = picked.map((i) => cols[0].rows[i].id).filter((id) => id !== undefined);
   if (!ids.length) return;
   clearThen(() => window.clclMenu.chooseMany(ids, !!copyOnly));
@@ -301,6 +313,7 @@ window.addEventListener('contextmenu', (ev) => { ev.preventDefault(); dismiss();
 window.clclMenu.onClear(() => clearThen(() => window.clclMenu.cleared()));
 
 window.clclMenu.onShow((m) => {
+  if (picked.length) window.clclMenu.debug(`menu recarregado com ${picked.length} marcados (a selecao foi perdida)`);
   closeFrom(0);
   cols = [];
   active = 0;

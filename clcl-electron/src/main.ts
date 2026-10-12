@@ -1181,6 +1181,7 @@ function openPanelMenu(kind: string): void {
 function registerMenuIpc(): void {
   ipcMain.on('menu:close', () => hidePanelMenu('esc ou clique fora', true));
   ipcMain.on('menu:cleared', () => finishPanelHide());
+  ipcMain.on('menu:debug', (_ev, msg: unknown) => log('menu:', String(msg).slice(0, 400)));
   ipcMain.on('menu:shown', (_ev, token: unknown) => {
     if (typeof token === 'number' && token > panelDrawnToken) panelDrawnToken = token;
   });
@@ -1196,6 +1197,7 @@ function registerMenuIpc(): void {
       .filter((id): id is number => typeof id === 'number')
       .map((id) => panelEntries[id])
       .filter((e): e is store.HistoryEntry => e !== undefined);
+    log('menu: recebidos', ids.length, 'ids', JSON.stringify(ids.slice(0, 50)), '->', list.length, 'itens do historico');
     if (list.length) void pasteMany(list.slice(0, 50), copyOnly === true);
   });
 }
