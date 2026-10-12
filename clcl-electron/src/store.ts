@@ -14,7 +14,8 @@ export interface Config {
   registPath: string; // regist.dat usado na primeira carga
   popupMode: 'panel' | 'anchor' | 'activate' | 'tray'; // como o menu e aberto (ver popupAtCursor)
   menuFontSize: number; // tamanho da letra do menu no modo panel (px)
-  multiPasteImageDelayMs: number; // colar varias imagens fora do Finder: espera entre uma e outra (ms)
+  multiImageMode: 'auto' | 'ack' | 'items' | 'files' | 'onebyone'; // como colar varias imagens (ver src/imagepaste.ts)
+  multiPasteImageDelayMs: number; // modo onebyone (e reserva dos outros): espera entre uma imagem e outra (ms)
   popupFallback: boolean; // se o menu nao abrir, tenta o proximo modo sozinho
   remoteCommands: boolean; // aceita comandos de teste pelo arquivo clcl-cmd.txt
   hotkeysVersion: number; // controle interno: ver HOTKEYS_VERSION
@@ -35,6 +36,7 @@ const defaults: Config = {
   registPath: '',
   popupMode: 'panel',
   menuFontSize: 13,
+  multiImageMode: 'auto',
   multiPasteImageDelayMs: 2000,
   popupFallback: false,
   remoteCommands: true,

@@ -20,6 +20,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { downloadVideo, findYtDlp, parseVideoUrl } from './download';
+import { MULTI_IMAGE_MODES, MultiImageMode, pasteImagesAck, setClipboardImageItems } from './imagepaste';
 import * as icons from './icons';
 import { parseRegist } from './regist';
 import * as store from './store';
@@ -235,6 +236,55 @@ function frontAppIsFinder(): Promise<boolean> {
 
 type PasteChunk = { text: string } | { images: store.HistoryImage[] };
 
+// Escolhe o jeito de colar as imagens (config.json > multiImageMode):
+//   auto     - Finder na frente: arquivos de uma vez; outros apps: ack
+//   ack      - uma por vez, passando para a proxima assim que o app leu a anterior
+//   items    - todas num unico Cmd+V, uma imagem por item do clipboard
+//   files    - todas num unico Cmd+V, como arquivos .png
+//   onebyone - uma por vez com espera fixa (multiPasteImageDelayMs)
+async function pasteImages(images: store.HistoryImage[], tag: string, forced?: MultiImageMode): Promise<void> {
+  const paths = images.map((e) => path.join(store.imagesDir(), e.image)).filter((p) => fs.existsSync(p));
+  if (!paths.length) return;
+  let mode: MultiImageMode = forced ?? (MULTI_IMAGE_MODES.includes(cfg.multiImageMode) ? cfg.multiImageMode : 'auto');
+  if (!isMac) mode = 'onebyone';
+  else if (mode === 'auto') mode = (await frontAppIsFinder()) ? 'files' : 'ack';
+  const t0 = Date.now();
+  if (mode === 'ack') {
+    const r = await pasteImagesAck(paths);
+    log(`${tag}: ${paths.length} imagens (ack): ${r.done} lidas pelo app, tempos ${JSON.stringify(r.times)} ms${r.err ? ' erro: ' + r.err : ''}`);
+    if (r.done < paths.length) {
+      // o app nao confirmou a leitura (ou o script falhou): o resto vai com espera fixa
+      await pasteImagesOneByOne(paths.slice(r.done), tag);
+    }
+  } else if (mode === 'items' || mode === 'files') {
+    const ok = mode === 'items' ? await setClipboardImageItems(paths) : await setClipboardFiles(images);
+    log(`${tag}: ${paths.length} imagens num Cmd+V (${mode}) ${ok ? '' : '-> falhou, indo uma por vez'}`);
+    if (!ok) {
+      await pasteImagesOneByOne(paths, tag);
+    } else {
+      await sleep(80);
+      sendPasteKey();
+      await sleep(600 + 150 * paths.length);
+    }
+  } else {
+    await pasteImagesOneByOne(paths, tag);
+  }
+  log(`${tag}: imagens concluidas em ${Date.now() - t0} ms`);
+}
+
+async function pasteImagesOneByOne(paths: string[], tag: string): Promise<void> {
+  const gap = Math.max(500, Number(cfg.multiPasteImageDelayMs) || 2000);
+  log(`${tag}: ${paths.length} imagens uma por vez, ${gap} ms entre elas`);
+  for (let i = 0; i < paths.length; i++) {
+    const img = nativeImage.createFromPath(paths[i]);
+    if (img.isEmpty()) continue;
+    clipboard.writeImage(img);
+    await sleep(80);
+    sendPasteKey();
+    await sleep(gap);
+  }
+}
+
 async function pasteMany(list: store.HistoryEntry[], copyOnly: boolean): Promise<void> {
   const chunks: PasteChunk[] = [];
   for (const e of list) {
@@ -262,29 +312,9 @@ async function pasteMany(list: store.HistoryEntry[], copyOnly: boolean): Promise
       if ('text' in chunk) {
         clipboard.writeText(chunk.text);
         log(`colagem ${k + 1}/${chunks.length}: texto`);
-      } else if (chunk.images.length === 1) {
-        const file = path.join(store.imagesDir(), chunk.images[0].image);
-        const img = nativeImage.createFromPath(file);
-        if (img.isEmpty()) continue;
-        if (!(await copyAsFileIfFinder(file))) clipboard.writeImage(img);
-        log(`colagem ${k + 1}/${chunks.length}: 1 imagem`);
-        wait = 1200;
-      } else if (isMac && (await frontAppIsFinder()) && (await setClipboardFiles(chunk.images))) {
-        log(`colagem ${k + 1}/${chunks.length}: ${chunk.images.length} imagens como arquivos`);
-        wait = 1000 + 300 * chunk.images.length;
       } else {
-        // Fora do Finder: uma imagem por vez, com folga para o app terminar de importar
-        // cada uma antes de o clipboard mudar (medido no Notas: 0,7 s nao bastou).
-        const gap = Math.max(500, Number(cfg.multiPasteImageDelayMs) || 2000);
-        log(`colagem ${k + 1}/${chunks.length}: ${chunk.images.length} imagens, uma por vez, ${gap} ms entre elas`);
-        for (let i = 0; i < chunk.images.length; i++) {
-          const img = nativeImage.createFromPath(path.join(store.imagesDir(), chunk.images[i].image));
-          if (img.isEmpty()) continue;
-          clipboard.writeImage(img);
-          await sleep(80);
-          sendPasteKey();
-          if (i < chunk.images.length - 1 || k < chunks.length - 1) await sleep(gap);
-        }
+        await pasteImages(chunk.images, `colagem ${k + 1}/${chunks.length}`);
+        if (k < chunks.length - 1) await sleep(150);
         continue;
       }
       await sleep(80);
@@ -1280,6 +1310,22 @@ function runRemoteCommand(line: string): void {
   if (cmd === 'popup' && a === 'salvos') popupAtCursor(buildTemplatesMenu, 'salvos', mode);
   else if (cmd === 'popup' && a === 'clipboard') popupAtCursor(buildHistoryMenu, 'clipboard', mode);
   else if (cmd === 'search') toggleSearch();
+  else if (cmd === 'testpaste') {
+    // testpaste <modo> <n>: cola as n imagens mais recentes do historico no app da frente
+    const tmode = MULTI_IMAGE_MODES.includes(a as MultiImageMode) ? (a as MultiImageMode) : 'auto';
+    const n = Math.max(1, Math.min(20, parseInt(b ?? '3', 10) || 3));
+    const imgs = history.filter((e): e is store.HistoryImage => typeof e !== 'string').slice(0, n).reverse();
+    capturePaused = true;
+    void pasteImages(imgs, `teste ${tmode} ${imgs.length}`, tmode).finally(() => {
+      const img = clipboard.readImage();
+      lastImageKey = img.isEmpty() ? '' : imageKey(img);
+      lastSeen = clipboard.readText();
+      capturePaused = false;
+    });
+  } else if (cmd === 'set' && a === 'multiImageMode' && MULTI_IMAGE_MODES.includes(b as MultiImageMode)) {
+    cfg.multiImageMode = b as MultiImageMode;
+    store.saveConfig(cfg);
+  }
   else if (cmd === 'close') {
     const token = menuToken;
     dismissOpenMenu();

@@ -1,0 +1,103 @@
+// Colar varias imagens no macOS sem perder nenhuma e sem esperas fixas.
+//
+// O problema: o app de destino so le o clipboard depois de receber o Cmd+V, e leva
+// um tempo variavel para importar cada imagem. Trocar o clipboard antes disso perde
+// imagens; esperar um tempo fixo e lento e mesmo assim pode falhar.
+//
+// Modo "ack" (padrao): cada imagem e posta no clipboard como uma PROMESSA (o dado so e
+// entregue quando alguem pede). Quando o app de destino pede o dado, sabemos que ele
+// leu, e so entao passamos para a proxima. O item leva a marca
+// org.nspasteboard.TransientType, que os gerenciadores de clipboard (Paste, Maccy, o
+// proprio CLCL) respeitam e nao leem, para que so o app de destino dispare o aviso.
+// Tudo roda num unico processo osascript (JXA), que tambem envia os Cmd+V.
+import { execFile } from 'child_process';
+
+export type MultiImageMode = 'auto' | 'ack' | 'items' | 'files' | 'onebyone';
+export const MULTI_IMAGE_MODES: MultiImageMode[] = ['auto', 'ack', 'items', 'files', 'onebyone'];
+
+const ACK_JXA = `
+ObjC.import('AppKit');
+var state = { provided: false, path: '' };
+ObjC.registerSubclass({
+  name: 'CLCLPngProvider',
+  protocols: ['NSPasteboardItemDataProvider'],
+  methods: {
+    'pasteboard:item:provideDataForType:': {
+      types: ['void', ['id', 'id', 'id']],
+      implementation: function (pb, item, type) {
+        var t = ObjC.unwrap(type);
+        var data = $.NSData.dataWithContentsOfFile(state.path);
+        if (t === 'public.tiff') data = $.NSImage.alloc.initWithData(data).TIFFRepresentation;
+        item.setDataForType(data, type);
+        state.provided = true;
+      }
+    }
+  }
+});
+function spin(sec) { $.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(sec)); }
+function run(argv) {
+  var timeoutMs = parseInt(argv[0], 10);
+  var paths = argv.slice(1);
+  var se = Application('System Events');
+  var provider = $.CLCLPngProvider.alloc.init;
+  var pb = $.NSPasteboard.generalPasteboard;
+  var out = [];
+  for (var i = 0; i < paths.length; i++) {
+    state.provided = false;
+    state.path = paths[i];
+    pb.clearContents;
+    var item = $.NSPasteboardItem.alloc.init;
+    item.setDataProviderForTypes(provider, $(['public.png', 'public.tiff']));
+    item.setDataForType($.NSData.data, 'org.nspasteboard.TransientType');
+    pb.writeObjects($([item]));
+    spin(0.03);
+    se.keystroke('v', { using: 'command down' });
+    var t0 = Date.now();
+    while (!state.provided && Date.now() - t0 < timeoutMs) spin(0.02);
+    out.push(state.provided ? Date.now() - t0 : -1);
+    if (!state.provided) break;
+    spin(0.12);
+  }
+  return JSON.stringify(out);
+}`;
+
+const ITEMS_JXA = `
+ObjC.import('AppKit');
+function run(argv) {
+  var pb = $.NSPasteboard.generalPasteboard;
+  pb.clearContents;
+  var arr = $.NSMutableArray.array;
+  for (var i = 0; i < argv.length; i++) {
+    var img = $.NSImage.alloc.initWithContentsOfFile(argv[i]);
+    if (!img.isNil()) arr.addObject(img);
+  }
+  return pb.writeObjects(arr) ? 'ok' : 'falhou';
+}`;
+
+function osa(script: string, args: string[], timeoutMs: number): Promise<{ ok: boolean; out: string; err?: string }> {
+  return new Promise((resolve) => {
+    execFile('osascript', ['-l', 'JavaScript', '-e', script, ...args], { timeout: timeoutMs }, (err, stdout, stderr) => {
+      if (err) resolve({ ok: false, out: String(stdout).trim(), err: (String(stderr).trim() || err.message).split('\n')[0] });
+      else resolve({ ok: true, out: String(stdout).trim() });
+    });
+  });
+}
+
+// Modo ack: devolve quantas imagens o destino confirmadamente leu (na ordem), e o tempo de cada uma.
+export async function pasteImagesAck(paths: string[], perImageTimeoutMs = 4000): Promise<{ done: number; times: number[]; err?: string }> {
+  const r = await osa(ACK_JXA, [String(perImageTimeoutMs), ...paths], perImageTimeoutMs * paths.length + 10000);
+  if (!r.ok) return { done: 0, times: [], err: r.err };
+  try {
+    const times = JSON.parse(r.out) as number[];
+    const done = times.filter((t) => t >= 0).length;
+    return { done, times };
+  } catch {
+    return { done: 0, times: [], err: `resposta inesperada: ${r.out.slice(0, 120)}` };
+  }
+}
+
+// Modo items: todas as imagens num unico clipboard, uma por item (para um Cmd+V so).
+export async function setClipboardImageItems(paths: string[]): Promise<boolean> {
+  const r = await osa(ITEMS_JXA, paths, 8000);
+  return r.ok && r.out === 'ok';
+}
