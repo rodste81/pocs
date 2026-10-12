@@ -38,6 +38,13 @@
   .row.sel .ic-doc { stroke: var(--sel-text); }
   .row.open:not(.sel) { background: var(--line); }
   .row.off { color: var(--dim); }
+  .row.hint { font-size: 0.85em; white-space: normal; }
+  .row.picked:not(.sel) { background: rgba(47, 111, 214, 0.18); }
+  .row .badge {
+    flex: none; min-width: 1.5em; padding: 0 5px; border-radius: 9px; text-align: center;
+    font-size: 0.8em; font-weight: 600; background: var(--sel); color: var(--sel-text);
+  }
+  .row.sel .badge { background: var(--sel-text); color: var(--sel); }
   .sep { height: 1px; background: var(--line); margin: 5px 8px; }
 </style>
 </head>
@@ -55,6 +62,7 @@ let lastMouse = null;
 let typed = '';
 let typedAt = 0;
 let thumbH = 32;
+let picked = [];      // menu do clipboard: linhas escolhidas para colar juntas, na ordem
 
 const fold = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const usable = (r) => r && r.t !== 'sep' && !r.off;
@@ -82,7 +90,7 @@ function makeColumn(rows) {
       return;
     }
     const row = document.createElement('div');
-    row.className = 'row' + (r.off ? ' off' : '');
+    row.className = 'row' + (r.off ? ' off' : '') + (r.hint ? ' hint' : '');
     if (r.thumb) {
       const img = document.createElement('img');
       img.src = r.thumb;
@@ -115,7 +123,9 @@ function makeColumn(rows) {
       if (!usable(r)) return;
       select(level, i);
       if (r.rows) openChild(level, false);
-      else choose(r, ev.shiftKey);
+      else if (ev.shiftKey && r.multi && level === 0) togglePick(i);
+      else if (level === 0 && picked.length && picked.includes(i)) chooseMany(ev.altKey);
+      else choose(r, ev.altKey);
     });
     el.appendChild(row);
   });
@@ -205,6 +215,49 @@ function choose(r, copyOnly) {
   clearThen(() => window.clclMenu.choose(r.id, !!copyOnly));
 }
 
+// ---- varios itens (menu do clipboard) ----
+function renderPicks() {
+  const col = cols[0];
+  if (!col) return;
+  [...col.el.children].forEach((el, i) => {
+    el.classList.remove('picked');
+    el.querySelector('.badge')?.remove();
+    const n = picked.indexOf(i);
+    if (n >= 0) {
+      el.classList.add('picked');
+      const b = document.createElement('span');
+      b.className = 'badge';
+      b.textContent = String(n + 1);
+      el.appendChild(b);
+    }
+  });
+}
+function togglePick(i) {
+  const n = picked.indexOf(i);
+  if (n >= 0) picked.splice(n, 1);
+  else picked.push(i);
+  renderPicks();
+}
+// Shift+seta: inclui a linha de partida e a seguinte; voltando pelo mesmo caminho, desmarca.
+function extendPick(delta) {
+  const col = cols[0];
+  if (active !== 0 || !col) return;
+  const start = col.sel;
+  if (!col.rows[start] || !col.rows[start].multi) { move(delta); return; }
+  if (!picked.length) picked.push(start);
+  move(delta);
+  const cur = col.sel;
+  if (!col.rows[cur] || !col.rows[cur].multi) { select(0, start); renderPicks(); return; } // nao sai da lista
+  if (picked.length >= 2 && picked[picked.length - 2] === cur) picked.pop();
+  else if (!picked.includes(cur)) picked.push(cur);
+  renderPicks();
+}
+function chooseMany(copyOnly) {
+  const ids = picked.map((i) => cols[0].rows[i].id).filter((id) => id !== undefined);
+  if (!ids.length) return;
+  clearThen(() => window.clclMenu.chooseMany(ids, !!copyOnly));
+}
+
 function typeSelect(ch) {
   const now = Date.now();
   typed = now - typedAt > 800 ? ch : typed + ch;
@@ -224,13 +277,19 @@ window.addEventListener('keydown', (ev) => {
   const col = cols[active];
   if (!col) return;
   const r = col.rows[col.sel];
-  if (ev.key === 'ArrowDown') move(1);
+  if (ev.key === 'ArrowDown' && ev.shiftKey) extendPick(1);
+  else if (ev.key === 'ArrowUp' && ev.shiftKey) extendPick(-1);
+  else if (ev.key === 'ArrowDown') move(1);
   else if (ev.key === 'ArrowUp') move(-1);
   else if (ev.key === 'Home') { col.sel = -1; move(1); }
   else if (ev.key === 'End') { col.sel = 0; move(-1); }
   else if (ev.key === 'ArrowRight') { if (r && r.rows) openChild(active, true); }
   else if (ev.key === 'ArrowLeft') { if (active > 0) { const p = active - 1; closeFrom(active); active = p; } }
-  else if (ev.key === 'Enter') { if (r && r.rows) openChild(active, true); else if (r) choose(r, ev.shiftKey); }
+  else if (ev.key === 'Enter') {
+    if (r && r.rows) openChild(active, true);
+    else if (active === 0 && picked.length) chooseMany(ev.altKey);
+    else if (r) choose(r, ev.altKey);
+  }
   else if (ev.key === 'Escape') dismiss();
   else if (ev.key.length === 1 && !ev.metaKey && !ev.ctrlKey && !ev.altKey) typeSelect(ev.key);
   else return;
@@ -246,6 +305,7 @@ window.clclMenu.onShow((m) => {
   cols = [];
   active = 0;
   typed = '';
+  picked = [];
   lastMouse = null;
   thumbH = m.thumbHeight || 32;
   document.documentElement.style.setProperty('--fs', (m.fontSize || 13) + 'px');

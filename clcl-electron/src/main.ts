@@ -176,6 +176,53 @@ function pasteIfAllowed(copyOnly: boolean, delay = 120): void {
   setTimeout(sendPasteKey, delay);
 }
 
+// Cola varios itens do historico, um depois do outro, na ordem em que foram escolhidos.
+// Textos seguidos viram uma colagem so (uma linha cada); imagens sao coladas uma a uma
+// (no Finder viram arquivos .png). So copiar (copyOnly) junta os textos; imagens nao
+// podem ir juntas para o clipboard.
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+async function pasteMany(list: store.HistoryEntry[], copyOnly: boolean): Promise<void> {
+  const chunks: store.HistoryEntry[] = [];
+  for (const e of list) {
+    const last = chunks[chunks.length - 1];
+    if (typeof e === 'string' && typeof last === 'string') chunks[chunks.length - 1] = `${last}\n${e}`;
+    else chunks.push(e);
+  }
+  log('colar varios:', list.length, 'itens em', chunks.length, 'colagens', copyOnly ? '(so copiar)' : '');
+  if (copyOnly || !cfg.autoPaste || !canPaste()) {
+    const texts = list.filter((e): e is string => typeof e === 'string');
+    if (texts.length) useText(texts.join('\n'), true, false);
+    if (texts.length < list.length) notify('Imagens só podem ser coladas, não copiadas juntas. Copiei só os textos.');
+    if (!copyOnly) pasteIfAllowed(false); // mostra o aviso de Acessibilidade, se faltar
+    return;
+  }
+  capturePaused = true;
+  try {
+    await sleep(150); // o menu fecha e o foco volta para o app do usuario
+    for (const chunk of chunks) {
+      if (typeof chunk === 'string') {
+        clipboard.writeText(chunk);
+      } else {
+        const file = path.join(store.imagesDir(), chunk.image);
+        const img = nativeImage.createFromPath(file);
+        if (img.isEmpty()) continue;
+        if (!(await copyAsFileIfFinder(file))) clipboard.writeImage(img);
+      }
+      await sleep(60);
+      sendPasteKey();
+      await sleep(400); // tempo para o app de destino ler o clipboard antes do proximo item
+    }
+  } finally {
+    // o que ficou no clipboard foi escrito por nos: nao entra de novo no historico
+    lastSeen = clipboard.readText();
+    ownWrite = lastSeen || undefined;
+    const img = clipboard.readImage();
+    lastImageKey = img.isEmpty() ? '' : imageKey(img);
+    capturePaused = false;
+  }
+}
+
 // ---------- historico (menu do clipboard) ----------
 
 function isConcealed(): boolean {
@@ -225,6 +272,15 @@ function pushHistory(entry: store.HistoryEntry): void {
 
 // Imagens (ex.: screenshot com Cmd+Ctrl+Shift+4). Verificado ~1x por segundo,
 // porque ler a imagem do clipboard custa mais do que ler texto.
+function imageKey(img: Electron.NativeImage): string {
+  const { width, height } = img.getSize();
+  const small = img.resize({ width: 48, quality: 'good' }).toBitmap();
+  return `${width}x${height}-${createHash('sha1').update(small).digest('hex')}`;
+}
+
+// Enquanto o app cola varios itens em sequencia, nao captura o que ele mesmo escreve.
+let capturePaused = false;
+
 function pollImage(): void {
   if (!clipboard.availableFormats().some((f) => f.startsWith('image/'))) {
     lastImageKey = '';
@@ -238,8 +294,7 @@ function pollImage(): void {
   const img = clipboard.readImage();
   if (img.isEmpty()) return;
   const { width, height } = img.getSize();
-  const small = img.resize({ width: 48, quality: 'good' }).toBitmap();
-  const key = `${width}x${height}-${createHash('sha1').update(small).digest('hex')}`;
+  const key = imageKey(img);
   if (key === lastImageKey) return;
   lastImageKey = key;
   if (isConcealed()) return;
@@ -259,6 +314,7 @@ function pollImage(): void {
 }
 
 function pollClipboard(): void {
+  if (capturePaused) return;
   const text = clipboard.readText();
   if (!text) {
     lastSeen = '';
@@ -800,15 +856,19 @@ interface MenuRow {
   tip?: string;
   id?: number;
   off?: boolean;
+  multi?: boolean; // pode entrar numa selecao de varios itens
+  hint?: boolean; // linha de ajuda, so texto
   rows?: MenuRow[];
 }
 type MenuAction = (copyOnly: boolean) => void;
 interface MenuModel {
   rows: MenuRow[];
   actions: MenuAction[];
+  entries?: (store.HistoryEntry | undefined)[]; // menu do clipboard: item do historico por id
 }
 let savedModel: MenuModel | undefined; // cache: refeito quando os itens salvos mudam
 let panelActions: MenuAction[] = [];
+let panelEntries: (store.HistoryEntry | undefined)[] = [];
 let panelKind = '';
 let panelShownAt = 0;
 const thumbUrlCache = new Map<string, string>();
@@ -855,20 +915,26 @@ function thumbUrl(e: store.HistoryImage): string | undefined {
 
 function buildHistoryModel(): MenuModel {
   const actions: MenuAction[] = [];
-  const act = (fn: MenuAction): number => actions.push(fn) - 1;
+  const entries: (store.HistoryEntry | undefined)[] = [];
+  const act = (fn: MenuAction, entry?: store.HistoryEntry): number => {
+    entries.push(entry);
+    return actions.push(fn) - 1;
+  };
   const rows: MenuRow[] = history.map((e, i): MenuRow => {
     if (typeof e === 'string') {
-      return { t: 'item', label: `${i + 1}. ${plain(e)}`, tip: tooltip(e), id: act((copyOnly) => useText(e, copyOnly, false)) };
+      return { t: 'item', label: `${i + 1}. ${plain(e)}`, tip: tooltip(e), multi: true, id: act((copyOnly) => useText(e, copyOnly, false), e) };
     }
     return {
       t: 'item',
       label: `${i + 1}. [Imagem ${e.width}×${e.height}]`,
       thumb: thumbUrl(e),
-      id: act((copyOnly) => void useImage(e, copyOnly)),
+      multi: true,
+      id: act((copyOnly) => void useImage(e, copyOnly), e),
     };
   });
   if (!rows.length) rows.push({ t: 'item', label: '(histórico vazio)', off: true });
   rows.push({ t: 'sep' });
+  if (history.length > 1) rows.push({ t: 'item', label: 'Shift+↑↓ ou Shift+clique: vários · Enter: colar · ⌥: só copiar', off: true, hint: true });
   rows.push({
     t: 'item',
     label: 'Limpar histórico',
@@ -879,7 +945,7 @@ function buildHistoryModel(): MenuModel {
       store.saveHistory(history);
     }),
   });
-  return { rows, actions };
+  return { rows, actions, entries };
 }
 
 function createMenuWindow(): void {
@@ -989,6 +1055,7 @@ function openPanelMenu(kind: string): void {
   panelHideTimer = undefined;
   const model = kind === 'salvos' ? buildSavedModel() : buildHistoryModel();
   panelActions = model.actions;
+  panelEntries = model.entries ?? [];
   const pt = screen.getCursorScreenPoint();
   const area = screen.getDisplayNearestPoint(pt).bounds; // a janela cobre a tela; as colunas do menu flutuam dentro dela
   panelKind = kind;
@@ -1054,6 +1121,15 @@ function registerMenuIpc(): void {
     const action = typeof id === 'number' ? panelActions[id] : undefined;
     hidePanelMenu('item escolhido', true);
     if (action) action(copyOnly === true);
+  });
+  ipcMain.on('menu:chooseMany', (_ev, ids: unknown, copyOnly: unknown) => {
+    hidePanelMenu('varios itens escolhidos', true);
+    if (!Array.isArray(ids)) return;
+    const list = ids
+      .filter((id): id is number => typeof id === 'number')
+      .map((id) => panelEntries[id])
+      .filter((e): e is store.HistoryEntry => e !== undefined);
+    if (list.length) void pasteMany(list.slice(0, 50), copyOnly === true);
   });
 }
 
