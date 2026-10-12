@@ -222,6 +222,17 @@ function setClipboardFiles(images: store.HistoryImage[]): Promise<boolean> {
   });
 }
 
+function frontAppIsFinder(): Promise<boolean> {
+  return new Promise((resolve) => {
+    execFile(
+      'osascript',
+      ['-e', 'tell application "System Events" to get bundle identifier of (first application process whose frontmost is true)'],
+      { timeout: 3000 },
+      (err, stdout) => resolve(!err && String(stdout).trim() === 'com.apple.finder'),
+    );
+  });
+}
+
 type PasteChunk = { text: string } | { images: store.HistoryImage[] };
 
 async function pasteMany(list: store.HistoryEntry[], copyOnly: boolean): Promise<void> {
@@ -258,21 +269,22 @@ async function pasteMany(list: store.HistoryEntry[], copyOnly: boolean): Promise
         if (!(await copyAsFileIfFinder(file))) clipboard.writeImage(img);
         log(`colagem ${k + 1}/${chunks.length}: 1 imagem`);
         wait = 1200;
-      } else if (isMac && (await setClipboardFiles(chunk.images))) {
+      } else if (isMac && (await frontAppIsFinder()) && (await setClipboardFiles(chunk.images))) {
         log(`colagem ${k + 1}/${chunks.length}: ${chunk.images.length} imagens como arquivos`);
         wait = 1000 + 300 * chunk.images.length;
       } else {
-        // sem os arquivos no clipboard: uma imagem por vez, com folga para o destino importar
-        log(`colagem ${k + 1}/${chunks.length}: ${chunk.images.length} imagens, uma por vez`);
+        // Fora do Finder: uma imagem por vez, com folga para o app terminar de importar
+        // cada uma antes de o clipboard mudar (medido no Notas: 0,7 s nao bastou).
+        const gap = Math.max(500, Number(cfg.multiPasteImageDelayMs) || 2000);
+        log(`colagem ${k + 1}/${chunks.length}: ${chunk.images.length} imagens, uma por vez, ${gap} ms entre elas`);
         for (let i = 0; i < chunk.images.length; i++) {
           const img = nativeImage.createFromPath(path.join(store.imagesDir(), chunk.images[i].image));
           if (img.isEmpty()) continue;
           clipboard.writeImage(img);
           await sleep(80);
           sendPasteKey();
-          if (i < chunk.images.length - 1) await sleep(1500);
+          if (i < chunk.images.length - 1 || k < chunks.length - 1) await sleep(gap);
         }
-        if (k < chunks.length - 1) await sleep(1200);
         continue;
       }
       await sleep(80);
@@ -1098,7 +1110,17 @@ function windowOnScreen(win: BrowserWindow): Promise<boolean | undefined> {
       }
       try {
         const list = JSON.parse(String(stdout).trim()) as { X: number; Y: number; Width: number; Height: number }[];
-        resolve(list.some((r) => Math.abs(r.Width - b.width) < 2 && Math.abs(r.Height - b.height) < 2));
+        // A janela conta como "na tela" se alguma janela do CLCL que o macOS diz estar na
+        // tela cobre ao menos metade dela (numa tela cheia o macOS pode encolher a janela
+        // para fora da barra de menus, entao o tamanho exato nao serve).
+        const overlap = (r: { X: number; Y: number; Width: number; Height: number }): number => {
+          const w = Math.min(r.X + r.Width, b.x + b.width) - Math.max(r.X, b.x);
+          const h = Math.min(r.Y + r.Height, b.y + b.height) - Math.max(r.Y, b.y);
+          return w > 0 && h > 0 ? (w * h) / (b.width * b.height) : 0;
+        };
+        const on = list.some((r) => overlap(r) >= 0.5);
+        if (!on) log('conferencia da tela: janela em', JSON.stringify(b), 'macOS mostra', JSON.stringify(list).slice(0, 300));
+        resolve(on);
       } catch {
         log('conferencia da tela: resposta inesperada', String(stdout).slice(0, 120));
         resolve(undefined);
