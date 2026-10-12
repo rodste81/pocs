@@ -90,7 +90,7 @@ function sendPasteKey(): void {
   if (isMac) {
     // espera Shift/Control/Option/Command serem soltos: com Shift ainda apertado o Cmd+V
     // vira "colar sem formatacao", que nao cola imagens
-    void pressPasteKey().then((r) => {
+    void pressPasteKey(menuTargetApp).then((r) => {
       if (!r.ok) notify('Não consegui colar automaticamente; o conteúdo está no clipboard (⌘V).');
       if (r.waitedMs > 40) log(`colar: esperou ${r.waitedMs} ms as teclas modificadoras serem soltas`);
     });

@@ -72,6 +72,7 @@ function run(argv) {
     pb.writeObjects($([item]));
     spin(0.03);
     waited += waitModifiersUp();
+    if (frontId() === 'net.robotizze.clcl') { activateTarget(target); spin(0.15); }
     se.keystroke('v', { using: 'command down' });
     var t0 = Date.now();
     // Se o app nao pedir a imagem em 1 s, o Cmd+V provavelmente se perdeu (o app ainda
@@ -97,8 +98,17 @@ function run(argv) {
 // Cmd+V para o app da frente, depois de as teclas modificadoras serem soltas.
 const PASTE_KEY_JXA = `
 ObjC.import('AppKit');
-function run() {
+function run(argv) {
+  var target = argv[0] || '';
   var t0 = Date.now();
+  // Depois de um clique no menu o CLCL pode ser o app da frente (medido: Shift+clique).
+  // Nesse caso o Cmd+V iria para ele; devolve a frente ao app de destino antes.
+  var front = $.NSWorkspace.sharedWorkspace.frontmostApplication;
+  if (target && !front.isNil() && ObjC.unwrap(front.bundleIdentifier) === 'net.robotizze.clcl') {
+    var apps = $.NSRunningApplication.runningApplicationsWithBundleIdentifier(target);
+    if (apps.count > 0) apps.objectAtIndex(0).activateWithOptions(2);
+    $.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(0.15));
+  }
   while ((Number($.NSEvent.modifierFlags) & 0x1E0000) !== 0 && Date.now() - t0 < 3000) {
     $.NSRunLoop.currentRunLoop.runUntilDate($.NSDate.dateWithTimeIntervalSinceNow(0.02));
   }
@@ -106,8 +116,8 @@ function run() {
   return String(Date.now() - t0);
 }`;
 
-export function pressPasteKey(): Promise<{ ok: boolean; waitedMs: number; err?: string }> {
-  return osa(PASTE_KEY_JXA, [], 8000).then((r) => ({ ok: r.ok, waitedMs: parseInt(r.out, 10) || 0, err: r.err }));
+export function pressPasteKey(targetBundleId = ''): Promise<{ ok: boolean; waitedMs: number; err?: string }> {
+  return osa(PASTE_KEY_JXA, [targetBundleId], 8000).then((r) => ({ ok: r.ok, waitedMs: parseInt(r.out, 10) || 0, err: r.err }));
 }
 
 const ITEMS_JXA = `

@@ -32,6 +32,21 @@ Os atalhos ficam em `config.json` (`hotkeyTemplates`, `hotkeyHistory`, `hotkeySe
 - **Modos antigos de menu nativo** (`anchor`, `activate`, `tray`), mantidos para diagnóstico. Testado no Mac em 2026-10-09 com teclas reais: no modo `anchor` (app não ativado) o menu abre mas não recebe o teclado; Esc e setas vão para o app de baixo e os atalhos seguintes ficam na fila até o menu ser fechado com o mouse. No modo `activate` o CLCL vira o app da frente ao abrir e devolve o foco (`app.hide()`) ao fechar. `tray` abre preso ao ícone da barra. O log registra `menu abriu` / `*** o menu NAO abriu ***`.
 - **Comandos de teste**: com `remoteCommands: true`, o app lê `new clcl/clcl-cmd.txt` a cada 400 ms (`popup salvos|clipboard [modo]`, `search`, `close`, `set popupMode|popupFallback|remoteCommands <valor>`). Desligar com `set remoteCommands false` quando não estiver depurando.
 
+## Lições aprendidas (2026-10-09 a 2026-10-12)
+
+Para quem continuar este trabalho (Claude ou outra pessoa). Cada uma custou pelo menos uma rodada de instalação perdida.
+
+1. **Ler o log antes de supor.** `new clcl/clcl.log` (espelho do log em `~/Library/Application Support/clcl-electron/`) mostrou a causa real em quase todos os casos; várias hipóteses "prováveis" estavam erradas (marca de todas as mesas perdida, CLCL ativo, Shift segurado, seleção perdida).
+2. **Medir antes de corrigir.** Quando o log não diz o suficiente, a primeira entrega é instrumentação (o que o app viu, e o que o macOS diz), não a correção. Ex.: `desenhado = sim/não`, `na tela = sim/NAO`, `app da frente` em cada repetição do Cmd+V.
+3. **O que o Electron acha ≠ o que o macOS mostra.** `isVisible()`/`isFocused()` diziam "aberto e focado" com o menu invisível. Perguntar ao macOS (JXA + CoreGraphics/NSWorkspace) foi o que separou as causas.
+4. **Tela cheia do macOS:** ativar o app (`app.focus({steal:true})`) tira o usuário da tela cheia e fecha menus nativos. Para receber teclado sem ativar, usar janela `type: 'panel'`. Menus nativos (`Menu.popup`) de um app em segundo plano não são confiáveis; daí o menu em `ui/menu.html`.
+5. **Clipboard é uma corrida.** O app de destino lê o clipboard *depois* do Cmd+V, num tempo variável. Esperas fixas são lentas e ainda perdem itens. A solução que funcionou: clipboard como promessa (`NSPasteboardItem` com data provider) e só seguir quando o destino pede o dado; marcar `org.nspasteboard.TransientType` para gerenciadores de clipboard (o usuário tem o Paste) não lerem antes.
+6. **Clique no painel pode deixar o CLCL como app da frente** (medido: `app da frente net.robotizze.clcl` depois de Shift+clique), mesmo com o evento `did-resign-active` dizendo o contrário. Antes de todo Cmd+V, conferir o app da frente de verdade (NSWorkspace) e devolver a frente ao app de destino (`NSRunningApplication.activateWithOptions`, sem Apple Events).
+7. **Testar no Mac, com o app real, no caminho do usuário.** O teste pelo comando `testpaste` passou e o caminho do usuário (Shift+clique) falhou. O canal `clcl-cmd.txt` + computer use permitem testar sem o usuário, mas o computer use não vê nem clica nas janelas do CLCL; o que não dá para reproduzir assim, pedir ao usuário e ler o log.
+8. **Entregas na pasta do Mac:** conferir o md5 depois de cada `device_commit_files`; a cópia pode chegar desatualizada se o arquivo de saída ainda não sincronizou (aconteceu uma vez e custou uma instalação).
+9. **Mudanças de configuração com cuidado.** Uma migração automática de atalhos desfez uma escolha do usuário. Trocas de padrão em `config.json` são feitas uma única vez (`hotkeysVersion`, `popupVersion`) e depois o arquivo é respeitado.
+10. **Não deixar laços sem limite.** Um "troca de menu" que esperava um evento que nunca vinha virou um laço infinito; estados que dependem de eventos do sistema precisam de limite de tempo ou de liberação explícita.
+
 ## Como rodar
 
 ```
