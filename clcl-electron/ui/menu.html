@@ -251,7 +251,8 @@ window.clclMenu.onShow((m) => {
   document.documentElement.style.setProperty('--fs', (m.fontSize || 13) + 'px');
   const col = makeColumn(m.rows);
   place(col, m.x, m.y, null);
-  window.clclMenu.shown();
+  // confirma depois de o navegador produzir um quadro com o menu
+  requestAnimationFrame(() => requestAnimationFrame(() => window.clclMenu.shown(m.token)));
 });
 </script>
 </body>

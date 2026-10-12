@@ -35,7 +35,8 @@
       "identity": null,
       "category": "public.app-category.utilities",
       "extendInfo": {
-        "LSUIElement": true
+        "LSUIElement": true,
+        "NSAppSleepDisabled": true
       }
     },
     "linux": {

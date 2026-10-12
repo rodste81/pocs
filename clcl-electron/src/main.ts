@@ -437,6 +437,7 @@ function createSearchWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
   floatOverEverything(searchWin);
@@ -902,6 +903,7 @@ function createMenuWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
   floatOverEverything(menuWin);
@@ -973,6 +975,8 @@ function windowOnScreen(win: BrowserWindow): Promise<boolean | undefined> {
 }
 
 let panelRecreated = false;
+let panelDrawToken = 0; // aumenta a cada abertura; a janela devolve o numero depois de desenhar
+let panelDrawnToken = 0;
 
 function openPanelMenu(kind: string): void {
   if (!menuWin || menuWin.isDestroyed()) createMenuWindow();
@@ -991,7 +995,9 @@ function openPanelMenu(kind: string): void {
   panelShownAt = Date.now();
   ensureFloating(win, 'painel');
   win.setBounds(area);
+  const drawToken = ++panelDrawToken;
   win.webContents.send('menu:show', {
+    token: drawToken,
     rows: model.rows,
     x: pt.x - area.x,
     y: pt.y - area.y,
@@ -1001,9 +1007,23 @@ function openPanelMenu(kind: string): void {
   win.show();
   win.focus();
   log('painel', kind, model.rows.length, 'linhas em', pt.x, pt.y, 'tela', `${area.x},${area.y} ${area.width}x${area.height}`);
+  // Se a janela nao confirmar que desenhou o menu, forca o redesenho e reenvia o menu.
+  setTimeout(() => {
+    if (win.isDestroyed() || !win.isVisible() || panelKind !== kind || panelDrawnToken >= drawToken) return;
+    log('*** painel sem desenho; forcando redesenho');
+    win.webContents.invalidate();
+    win.webContents.send('menu:show', {
+      token: drawToken,
+      rows: model.rows,
+      x: pt.x - area.x,
+      y: pt.y - area.y,
+      fontSize: Math.min(22, Math.max(9, Number(cfg.menuFontSize) || 13)),
+      thumbHeight: Math.min(store.THUMB_MAX, Math.max(16, Math.round(cfg.menuImageHeight) || 48)),
+    });
+  }, 350);
   setTimeout(() => {
     if (win.isDestroyed() || !win.isVisible() || panelKind !== kind) return;
-    log('painel aberto, focado =', win.isFocused());
+    log('painel aberto, focado =', win.isFocused(), '| desenhado =', panelDrawnToken >= drawToken);
     void windowOnScreen(win).then((onScreen) => {
       if (onScreen === undefined || win.isDestroyed() || !win.isVisible() || panelKind !== kind) return;
       log('painel na tela que o usuario ve =', onScreen ? 'sim' : 'NAO');
@@ -1027,7 +1047,9 @@ function openPanelMenu(kind: string): void {
 function registerMenuIpc(): void {
   ipcMain.on('menu:close', () => hidePanelMenu('esc ou clique fora', true));
   ipcMain.on('menu:cleared', () => finishPanelHide());
-  ipcMain.on('menu:shown', () => undefined);
+  ipcMain.on('menu:shown', (_ev, token: unknown) => {
+    if (typeof token === 'number' && token > panelDrawnToken) panelDrawnToken = token;
+  });
   ipcMain.on('menu:choose', (_ev, id: unknown, copyOnly: unknown) => {
     const action = typeof id === 'number' ? panelActions[id] : undefined;
     hidePanelMenu('item escolhido', true);
@@ -1183,6 +1205,14 @@ function registerHotkeys(): void {
   reg(cfg.hotkeySearch, toggleSearch);
   if (failed.length) notify(`Não consegui registrar o atalho: ${failed.join(', ')}. Ajuste em config.json.`);
 }
+
+// O CLCL fica horas parado esperando um atalho. Sem isto, o Chromium reduz o ritmo das
+// janelas escondidas e o menu pode abrir sem ter sido desenhado (janela transparente e
+// invisivel, mas com o teclado). O App Nap do macOS e desligado no Info.plist
+// (NSAppSleepDisabled, em package.json > build.mac.extendInfo).
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
 // Mesma pasta de dados rodando com "npm start" ou como CLCL.app.
 app.setPath('userData', path.join(app.getPath('appData'), 'clcl-electron'));
