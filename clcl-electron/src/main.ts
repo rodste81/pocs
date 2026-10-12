@@ -176,43 +176,110 @@ function pasteIfAllowed(copyOnly: boolean, delay = 120): void {
   setTimeout(sendPasteKey, delay);
 }
 
-// Cola varios itens do historico, um depois do outro, na ordem em que foram escolhidos.
-// Textos seguidos viram uma colagem so (uma linha cada); imagens sao coladas uma a uma
-// (no Finder viram arquivos .png). So copiar (copyOnly) junta os textos; imagens nao
-// podem ir juntas para o clipboard.
+// Cola varios itens do historico, na ordem em que foram escolhidos.
+// Medido no Mac (Notas): colando 7 imagens uma a uma com 0,4 s entre elas, so 3
+// entraram. O app de destino le o clipboard depois que recebe o Cmd+V, e quando ele
+// demora a importar uma imagem o clipboard ja foi trocado pela seguinte.
+// Por isso imagens seguidas vao numa colagem so, como arquivos .png (igual a copiar
+// varios arquivos no Finder e colar): um Cmd+V, todas as imagens. Textos seguidos
+// tambem vao juntos, uma linha cada. Entre uma colagem e outra o app espera o destino
+// terminar de ler (mais tempo depois de imagens).
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+const SET_FILES_JXA = `
+ObjC.import('AppKit');
+function run(argv) {
+  var pb = $.NSPasteboard.generalPasteboard;
+  pb.clearContents;
+  var urls = $.NSMutableArray.array;
+  for (var i = 0; i < argv.length; i++) urls.addObject($.NSURL.fileURLWithPath(argv[i]));
+  return pb.writeObjects(urls) ? 'ok' : 'falhou';
+}`;
+
+// Copia as imagens para a pasta temporaria com nomes legiveis e poe os arquivos no clipboard.
+function setClipboardFiles(images: store.HistoryImage[]): Promise<boolean> {
+  const d = new Date();
+  const p2 = (n: number): string => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}.${p2(d.getMinutes())}.${p2(d.getSeconds())}`;
+  const files: string[] = [];
+  try {
+    fs.mkdirSync(pasteTmpDir(), { recursive: true });
+    images.forEach((e, i) => {
+      const target = path.join(pasteTmpDir(), `Imagem ${stamp} (${i + 1}).png`);
+      fs.copyFileSync(path.join(store.imagesDir(), e.image), target);
+      files.push(target);
+    });
+  } catch (err) {
+    log('colar varios: falha ao preparar as imagens', err);
+    return Promise.resolve(false);
+  }
+  return new Promise((resolve) => {
+    execFile('osascript', ['-l', 'JavaScript', '-e', SET_FILES_JXA, ...files], { timeout: 5000 }, (err, stdout) => {
+      const ok = !err && String(stdout).trim() === 'ok';
+      if (!ok) log('colar varios: falha ao pôr os arquivos no clipboard', err ? err.message.split('\n')[0] : String(stdout).trim());
+      resolve(ok);
+    });
+  });
+}
+
+type PasteChunk = { text: string } | { images: store.HistoryImage[] };
+
 async function pasteMany(list: store.HistoryEntry[], copyOnly: boolean): Promise<void> {
-  const chunks: store.HistoryEntry[] = [];
+  const chunks: PasteChunk[] = [];
   for (const e of list) {
     const last = chunks[chunks.length - 1];
-    if (typeof e === 'string' && typeof last === 'string') chunks[chunks.length - 1] = `${last}\n${e}`;
-    else chunks.push(e);
+    if (typeof e === 'string') {
+      if (last && 'text' in last) last.text = `${last.text}\n${e}`;
+      else chunks.push({ text: e });
+    } else if (last && 'images' in last) last.images.push(e);
+    else chunks.push({ images: [e] });
   }
   log('colar varios:', list.length, 'itens em', chunks.length, 'colagens', copyOnly ? '(so copiar)' : '');
   if (copyOnly || !cfg.autoPaste || !canPaste()) {
     const texts = list.filter((e): e is string => typeof e === 'string');
     if (texts.length) useText(texts.join('\n'), true, false);
-    if (texts.length < list.length) notify('Imagens só podem ser coladas, não copiadas juntas. Copiei só os textos.');
+    if (texts.length < list.length) notify('Imagens só podem ser coladas, não copiadas junto com textos. Copiei só os textos.');
     if (!copyOnly) pasteIfAllowed(false); // mostra o aviso de Acessibilidade, se faltar
     return;
   }
   capturePaused = true;
   try {
     await sleep(150); // o menu fecha e o foco volta para o app do usuario
-    for (const chunk of chunks) {
-      if (typeof chunk === 'string') {
-        clipboard.writeText(chunk);
-      } else {
-        const file = path.join(store.imagesDir(), chunk.image);
+    for (let k = 0; k < chunks.length; k++) {
+      const chunk = chunks[k];
+      let wait = 450;
+      if ('text' in chunk) {
+        clipboard.writeText(chunk.text);
+        log(`colagem ${k + 1}/${chunks.length}: texto`);
+      } else if (chunk.images.length === 1) {
+        const file = path.join(store.imagesDir(), chunk.images[0].image);
         const img = nativeImage.createFromPath(file);
         if (img.isEmpty()) continue;
         if (!(await copyAsFileIfFinder(file))) clipboard.writeImage(img);
+        log(`colagem ${k + 1}/${chunks.length}: 1 imagem`);
+        wait = 1200;
+      } else if (isMac && (await setClipboardFiles(chunk.images))) {
+        log(`colagem ${k + 1}/${chunks.length}: ${chunk.images.length} imagens como arquivos`);
+        wait = 1000 + 300 * chunk.images.length;
+      } else {
+        // sem os arquivos no clipboard: uma imagem por vez, com folga para o destino importar
+        log(`colagem ${k + 1}/${chunks.length}: ${chunk.images.length} imagens, uma por vez`);
+        for (let i = 0; i < chunk.images.length; i++) {
+          const img = nativeImage.createFromPath(path.join(store.imagesDir(), chunk.images[i].image));
+          if (img.isEmpty()) continue;
+          clipboard.writeImage(img);
+          await sleep(80);
+          sendPasteKey();
+          if (i < chunk.images.length - 1) await sleep(1500);
+        }
+        if (k < chunks.length - 1) await sleep(1200);
+        continue;
       }
-      await sleep(60);
+      await sleep(80);
       sendPasteKey();
-      await sleep(400); // tempo para o app de destino ler o clipboard antes do proximo item
+      if (k < chunks.length - 1) await sleep(wait); // o destino precisa ler antes de trocarmos o clipboard
     }
+    await sleep(500);
   } finally {
     // o que ficou no clipboard foi escrito por nos: nao entra de novo no historico
     lastSeen = clipboard.readText();
