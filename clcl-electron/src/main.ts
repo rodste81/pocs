@@ -1179,6 +1179,38 @@ function windowOnScreen(win: BrowserWindow): Promise<boolean | undefined> {
 }
 
 let panelRecreated = false;
+// App que estava na frente quando o menu abriu: e nele que vamos colar.
+let menuTargetApp = '';
+function frontAppId(): Promise<string> {
+  return new Promise((resolve) => {
+    execFile(
+      'osascript',
+      ['-e', 'tell application "System Events" to get bundle identifier of (first application process whose frontmost is true)'],
+      { timeout: 3000 },
+      (err, stdout) => resolve(err ? '' : String(stdout).trim()),
+    );
+  });
+}
+
+// Se o CLCL virou o app ativo (por exemplo, ao clicar no menu), o Cmd+V iria para ele
+// e nao para o app do usuario. Devolve a frente ao app de destino antes de colar.
+async function restoreTargetFocus(why: string): Promise<void> {
+  if (!isMac) return;
+  log(`${why}: CLCL ativo = ${appActive}, destino = ${menuTargetApp || '?'}`);
+  if (!appActive) return;
+  const resigned = new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, 700);
+    app.once('did-resign-active', () => {
+      clearTimeout(t);
+      resolve();
+    });
+  });
+  if (menuTargetApp) execFile('open', ['-b', menuTargetApp]);
+  else app.hide();
+  await resigned;
+  await sleep(120);
+  log(`${why}: foco devolvido (CLCL ativo = ${appActive})`);
+}
 let panelDrawToken = 0; // aumenta a cada abertura; a janela devolve o numero depois de desenhar
 let panelDrawnToken = 0;
 
@@ -1198,6 +1230,11 @@ function openPanelMenu(kind: string): void {
   const area = screen.getDisplayNearestPoint(pt).bounds; // a janela cobre a tela; as colunas do menu flutuam dentro dela
   panelKind = kind;
   panelShownAt = Date.now();
+  if (isMac && !appActive) {
+    void frontAppId().then((id) => {
+      if (id && id !== 'net.robotizze.clcl') menuTargetApp = id;
+    });
+  }
   ensureFloating(win, 'painel');
   win.setBounds(area);
   const drawToken = ++panelDrawToken;
@@ -1259,7 +1296,8 @@ function registerMenuIpc(): void {
   ipcMain.on('menu:choose', (_ev, id: unknown, copyOnly: unknown) => {
     const action = typeof id === 'number' ? panelActions[id] : undefined;
     hidePanelMenu('item escolhido', true);
-    if (action) action(copyOnly === true);
+    if (!action) return;
+    void restoreTargetFocus('colar 1 item').then(() => action(copyOnly === true));
   });
   ipcMain.on('menu:chooseMany', (_ev, ids: unknown, copyOnly: unknown) => {
     hidePanelMenu('varios itens escolhidos', true);
@@ -1269,7 +1307,7 @@ function registerMenuIpc(): void {
       .map((id) => panelEntries[id])
       .filter((e): e is store.HistoryEntry => e !== undefined);
     log('menu: recebidos', ids.length, 'ids', JSON.stringify(ids.slice(0, 50)), '->', list.length, 'itens do historico');
-    if (list.length) void pasteMany(list.slice(0, 50), copyOnly === true);
+    if (list.length) void restoreTargetFocus('colar varios').then(() => pasteMany(list.slice(0, 50), copyOnly === true));
   });
 }
 
