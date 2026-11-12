@@ -46,6 +46,9 @@
   }
   .row.sel .badge { background: var(--sel-text); color: var(--sel); }
   .sep { height: 1px; background: var(--line); margin: 5px 8px; }
+  /* menu de opcoes do botao direito (imagem do historico) */
+  .ctx { position: absolute; min-width: 160px; padding: 5px; background: var(--bg); border-radius: 8px; box-shadow: var(--shadow); z-index: 10; }
+  .ctx .row svg { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 </style>
 </head>
 <body>
@@ -63,6 +66,8 @@ let typed = '';
 let typedAt = 0;
 let thumbH = 32;
 let picked = [];      // menu do clipboard: linhas escolhidas para colar juntas, na ordem
+let ctxEl = null;     // menu de opcoes do botao direito, quando aberto
+const SVG_EDIT = '<svg viewBox="0 0 16 16"><path d="M10.6 2.6l2.8 2.8-7.7 7.7-3.4.6.6-3.4z"/><path d="M9.2 4l2.8 2.8"/></svg>';
 
 const fold = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const usable = (r) => r && r.t !== 'sep' && !r.off;
@@ -113,6 +118,7 @@ function makeColumn(rows) {
     }
     if (r.tip) row.title = r.tip;
     row.addEventListener('mousemove', (ev) => {
+      if (ctxEl) return; // com o menu de opcoes aberto, a selecao fica parada
       if (lastMouse && lastMouse.x === ev.screenX && lastMouse.y === ev.screenY) return; // o cursor nao se moveu
       lastMouse = { x: ev.screenX, y: ev.screenY };
       if (!usable(r)) return;
@@ -120,12 +126,23 @@ function makeColumn(rows) {
     });
     row.addEventListener('click', (ev) => {
       ev.stopPropagation();
+      if (ctxEl) { closeCtx(); return; } // clique fora do menu de opcoes so fecha esse menu
+      if (ev.ctrlKey) return; // Control+clique e o botao direito do Mac
       if (!usable(r)) return;
       select(level, i);
       if (r.rows) openChild(level, false);
       else if (ev.shiftKey && r.multi && level === 0) togglePick(i);
       else if (level === 0 && picked.length && picked.includes(i)) chooseMany(ev.altKey);
       else choose(r, ev.altKey);
+    });
+    // botao direito / toque com dois dedos: menu de opcoes (por enquanto so nas imagens)
+    row.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      closeCtx();
+      if (!usable(r) || !r.image || r.id === undefined) return;
+      select(level, i);
+      openCtx(r, ev.clientX, ev.clientY);
     });
     el.appendChild(row);
   });
@@ -204,6 +221,7 @@ function move(delta) {
 // Antes de a janela ser escondida, o menu e apagado e a tela redesenhada. Sem isso, na
 // proxima abertura a janela mostraria por um instante o menu antigo, na posicao antiga.
 function clearThen(fn) {
+  closeCtx();
   closeFrom(0);
   cols = [];
   requestAnimationFrame(() => requestAnimationFrame(fn));
@@ -213,6 +231,58 @@ function dismiss() { clearThen(() => window.clclMenu.close()); }
 function choose(r, copyOnly) {
   if (r.id === undefined) return;
   clearThen(() => window.clclMenu.choose(r.id, !!copyOnly));
+}
+
+// ---- menu de opcoes do botao direito ----
+function closeCtx() {
+  if (ctxEl) ctxEl.remove();
+  ctxEl = null;
+}
+function openCtx(r, x, y) {
+  const el = document.createElement('div');
+  el.className = 'ctx';
+  const opts = [{ label: 'Editar imagem', icon: SVG_EDIT, run: () => editImage(r) }];
+  el._opts = opts;
+  opts.forEach((o, k) => {
+    const row = document.createElement('div');
+    row.className = 'row' + (k === 0 ? ' sel' : '');
+    const tmp = document.createElement('span');
+    tmp.innerHTML = o.icon;
+    row.appendChild(tmp.firstChild);
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = o.label;
+    row.appendChild(lbl);
+    row.addEventListener('mousemove', () => {
+      [...el.children].forEach((c) => c.classList.toggle('sel', c === row));
+    });
+    row.addEventListener('click', (ev) => { ev.stopPropagation(); o.run(); });
+    row.addEventListener('contextmenu', (ev) => { ev.preventDefault(); ev.stopPropagation(); o.run(); });
+    el.appendChild(row);
+  });
+  el.addEventListener('click', (ev) => ev.stopPropagation());
+  document.body.appendChild(el);
+  const W = window.innerWidth, H = window.innerHeight;
+  const w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(MARGIN, Math.min(x + 2, W - MARGIN - w)) + 'px';
+  el.style.top = Math.max(MARGIN, Math.min(y + 2, H - MARGIN - h)) + 'px';
+  ctxEl = el;
+  window.clclMenu.debug('menu de opcoes aberto: ' + r.label.slice(0, 40));
+}
+function ctxKey(ev) {
+  const rows = [...ctxEl.children];
+  let k = rows.findIndex((c) => c.classList.contains('sel'));
+  if (ev.key === 'Escape') closeCtx();
+  else if (ev.key === 'Enter') { if (k >= 0) ctxEl._opts[k].run(); }
+  else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+    k = (k + (ev.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+    rows.forEach((c, j) => c.classList.toggle('sel', j === k));
+  }
+  ev.preventDefault();
+}
+function editImage(r) {
+  window.clclMenu.debug('editar imagem: ' + r.label.slice(0, 40));
+  clearThen(() => window.clclMenu.editImage(r.id));
 }
 
 // ---- varios itens (menu do clipboard) ----
@@ -286,6 +356,7 @@ function typeSelect(ch) {
 }
 
 window.addEventListener('keydown', (ev) => {
+  if (ctxEl) { ctxKey(ev); return; }
   const col = cols[active];
   if (!col) return;
   const r = col.rows[col.sel];
@@ -308,12 +379,13 @@ window.addEventListener('keydown', (ev) => {
   ev.preventDefault();
 });
 // clique fora das colunas fecha o menu, como num menu do sistema
-window.addEventListener('click', dismiss);
-window.addEventListener('contextmenu', (ev) => { ev.preventDefault(); dismiss(); });
+window.addEventListener('click', () => { if (ctxEl) closeCtx(); else dismiss(); });
+window.addEventListener('contextmenu', (ev) => { ev.preventDefault(); if (ctxEl) closeCtx(); else dismiss(); });
 window.clclMenu.onClear(() => clearThen(() => window.clclMenu.cleared()));
 
 window.clclMenu.onShow((m) => {
   if (picked.length) window.clclMenu.debug(`menu recarregado com ${picked.length} marcados (a selecao foi perdida)`);
+  closeCtx();
   closeFrom(0);
   cols = [];
   active = 0;

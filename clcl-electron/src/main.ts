@@ -742,6 +742,179 @@ function registerEditorIpc(): void {
 }
 
 // Baixa o video do link para a pasta Downloads e avisa por notificacao.
+// ---------- editor de imagem (botao direito numa imagem do menu do clipboard) ----------
+// Uma janela por imagem. A janela edita uma copia; o arquivo do historico nao muda.
+// Salvar grava um PNG em Downloads, Copiar poe a imagem editada no clipboard (e ela entra
+// no historico como item novo) e E-mail abre uma mensagem nova do Mail com a imagem anexada.
+const imageEditors = new Map<number, { file: string; win: BrowserWindow }>();
+
+function editedStem(): string {
+  const d = new Date();
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return `CLCL ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
+}
+
+function uniquePng(dir: string, stem: string): string {
+  let f = path.join(dir, `${stem}.png`);
+  for (let i = 2; fs.existsSync(f); i++) f = path.join(dir, `${stem} (${i}).png`);
+  return f;
+}
+
+// Aceita so o PNG que a propria janela gera (canvas.toDataURL).
+function pngFromDataUrl(url: unknown): Buffer | undefined {
+  const prefix = 'data:image/png;base64,';
+  if (typeof url !== 'string' || !url.startsWith(prefix) || url.length > 300_000_000) return undefined;
+  const buf = Buffer.from(url.slice(prefix.length), 'base64');
+  return buf.length > 8 && buf.readUInt32BE(0) === 0x89504e47 ? buf : undefined;
+}
+
+function openImageEditor(entry: store.HistoryImage, retry = false): void {
+  const file = path.join(store.imagesDir(), entry.image);
+  if (!fs.existsSync(file)) {
+    notify('O arquivo dessa imagem não existe mais.');
+    return;
+  }
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const area = display.workArea;
+  const sf = display.scaleFactor || 1;
+  // tamanho da imagem como ela aparece na tela (uma captura retina tem o dobro de pixels)
+  const w = Math.round(Math.min(area.width * 0.92, Math.max(860, entry.width / sf + 48)));
+  const h = Math.round(Math.min(area.height * 0.92, Math.max(480, entry.height / sf + 130)));
+  const win = new BrowserWindow({
+    width: w,
+    height: h,
+    x: Math.round(area.x + (area.width - w) / 2),
+    y: Math.round(area.y + (area.height - h) / 2),
+    minWidth: Math.min(640, w),
+    minHeight: Math.min(360, h),
+    show: false,
+    frame: false,
+    resizable: true,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    backgroundColor: '#2b2b29',
+    title: 'CLCL — editar imagem',
+    ...floatingOptions,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'ui', 'image-editor-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false,
+    },
+  });
+  floatOverEverything(win);
+  const id = win.webContents.id;
+  imageEditors.set(id, { file, win });
+  win.on('closed', () => imageEditors.delete(id));
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (ev) => ev.preventDefault());
+  win.webContents.on('did-fail-load', (_e, code, desc) => log('editor de imagem: falha ao carregar', code, desc));
+  win.webContents.on('render-process-gone', (_e, d) => log('editor de imagem: renderer caiu', d.reason));
+  win.once('ready-to-show', () => {
+    // como os menus: janela-painel por cima de apps em tela cheia, sem ativar o CLCL
+    ensureFloating(win, 'editor de imagem');
+    win.show();
+    win.focus();
+    log('editor de imagem aberto', entry.image, `${entry.width}x${entry.height}`, `janela ${w}x${h}`);
+    setTimeout(() => {
+      void windowOnScreen(win).then((onScreen) => {
+        if (onScreen === undefined || win.isDestroyed()) return;
+        log('editor de imagem na tela que o usuario ve =', onScreen ? 'sim' : 'NAO');
+        if (onScreen || retry) return;
+        log('editor de imagem: recriando a janela na mesa ativa');
+        win.destroy();
+        openImageEditor(entry, true);
+      });
+    }, 200);
+  });
+  void win.loadFile(path.join(__dirname, '..', 'ui', 'image-editor.html'));
+}
+
+function registerImageEditorIpc(): void {
+  const editorOf = (ev: { sender: Electron.WebContents }) => imageEditors.get(ev.sender.id);
+  ipcMain.handle('imgedit:load', (ev) => {
+    const ed = editorOf(ev);
+    if (!ed) return undefined;
+    try {
+      return { dataUrl: 'data:image/png;base64,' + fs.readFileSync(ed.file).toString('base64') };
+    } catch (e) {
+      log('editor de imagem: nao consegui ler', ed.file, e);
+      return undefined;
+    }
+  });
+  ipcMain.handle('imgedit:save', (ev, url: unknown) => {
+    const buf = pngFromDataUrl(url);
+    if (!editorOf(ev) || !buf) return { ok: false, error: 'imagem inválida' };
+    try {
+      const f = uniquePng(app.getPath('downloads'), editedStem());
+      fs.writeFileSync(f, buf);
+      log('editor de imagem: salvo', f, buf.length, 'bytes');
+      if (Notification.isSupported()) {
+        const n = new Notification({ title: 'CLCL', body: `Imagem salva em Downloads: ${path.basename(f)}` });
+        n.on('click', () => shell.showItemInFolder(f));
+        n.show();
+      }
+      return { ok: true, name: path.basename(f) };
+    } catch (e) {
+      log('editor de imagem: erro ao salvar', e);
+      return { ok: false, error: (e as Error).message };
+    }
+  });
+  ipcMain.handle('imgedit:copy', (ev, url: unknown) => {
+    const buf = pngFromDataUrl(url);
+    if (!editorOf(ev) || !buf) return { ok: false };
+    const img = nativeImage.createFromBuffer(buf);
+    if (img.isEmpty()) return { ok: false };
+    clipboard.writeImage(img); // a captura do clipboard poe a imagem editada no historico
+    log('editor de imagem: copiado', `${img.getSize().width}x${img.getSize().height}`);
+    return { ok: true };
+  });
+  ipcMain.handle('imgedit:email', async (ev, url: unknown) => {
+    const buf = pngFromDataUrl(url);
+    if (!editorOf(ev) || !buf) return { ok: false, error: 'imagem inválida' };
+    const dir = path.join(app.getPath('userData'), 'edited');
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      // anexos de e-mails antigos (mais de 7 dias) sao apagados
+      for (const old of fs.readdirSync(dir)) {
+        const p = path.join(dir, old);
+        if (Date.now() - fs.statSync(p).mtimeMs > 7 * 86400e3) fs.rmSync(p, { force: true });
+      }
+    } catch {
+      /* limpeza e melhor esforco */
+    }
+    const f = uniquePng(dir, editedStem());
+    try {
+      fs.writeFileSync(f, buf);
+    } catch (e) {
+      log('editor de imagem: erro ao gravar o anexo', e);
+      return { ok: false, error: (e as Error).message };
+    }
+    if (!isMac) {
+      shell.showItemInFolder(f);
+      return { ok: true };
+    }
+    // abrir um PNG com o Mail cria uma mensagem nova com o arquivo anexado
+    const ok = await new Promise<boolean>((resolve) =>
+      execFile('open', ['-a', 'Mail', f], (err) => {
+        if (err) log('editor de imagem: nao consegui abrir o Mail', err.message);
+        resolve(!err);
+      }),
+    );
+    log('editor de imagem: e-mail', ok ? 'aberto' : 'falhou', f);
+    return { ok, error: ok ? undefined : 'não consegui abrir o Mail' };
+  });
+  ipcMain.on('imgedit:close', (ev) => {
+    const ed = editorOf(ev);
+    if (ed && !ed.win.isDestroyed()) ed.win.close();
+  });
+  ipcMain.on('imgedit:debug', (_ev, msg: unknown) => log('editor de imagem:', String(msg).slice(0, 400)));
+}
+
 async function startVideoDownload(input: string): Promise<void> {
   const url = parseVideoUrl(input);
   if (!url) return;
@@ -992,6 +1165,7 @@ interface MenuRow {
   id?: number;
   off?: boolean;
   multi?: boolean; // pode entrar numa selecao de varios itens
+  image?: boolean; // imagem do historico: o botao direito oferece "Editar imagem"
   hint?: boolean; // linha de ajuda, so texto
   rows?: MenuRow[];
 }
@@ -1064,6 +1238,7 @@ function buildHistoryModel(): MenuModel {
       label: `${i + 1}. [Imagem ${e.width}×${e.height}]`,
       thumb: thumbUrl(e),
       multi: true,
+      image: true,
       id: act((copyOnly) => void useImage(e, copyOnly), e),
     };
   });
@@ -1316,6 +1491,15 @@ function registerMenuIpc(): void {
     log('menu: recebidos', ids.length, 'ids', JSON.stringify(ids.slice(0, 50)), '->', list.length, 'itens do historico');
     if (list.length) void restoreTargetFocus('colar varios').then(() => pasteMany(list.slice(0, 50), copyOnly === true));
   });
+  ipcMain.on('menu:editImage', (_ev, id: unknown) => {
+    const entry = typeof id === 'number' ? panelEntries[id] : undefined;
+    hidePanelMenu('editar imagem', true);
+    if (!entry || typeof entry === 'string') {
+      log('editar imagem: o item escolhido nao e uma imagem', String(id));
+      return;
+    }
+    openImageEditor(entry);
+  });
 }
 
 // `kind` identifica o menu: o mesmo atalho de novo fecha; outro atalho troca de menu.
@@ -1367,6 +1551,12 @@ function runRemoteCommand(line: string): void {
       lastSeen = clipboard.readText();
       capturePaused = false;
     });
+  } else if (cmd === 'editimage') {
+    // editimage <n>: abre o editor na n-esima imagem do historico (1 = a mais recente)
+    const imgs = history.filter((e): e is store.HistoryImage => typeof e !== 'string');
+    const e = imgs[Math.max(1, parseInt(a ?? '1', 10) || 1) - 1];
+    if (e) openImageEditor(e);
+    else log('editimage: nao ha essa imagem no historico');
   } else if (cmd === 'set' && a === 'multiImageMode' && MULTI_IMAGE_MODES.includes(b as MultiImageMode)) {
     cfg.multiImageMode = b as MultiImageMode;
     store.saveConfig(cfg);
@@ -1517,6 +1707,7 @@ if (!app.requestSingleInstanceLock()) {
     registerMenuIpc();
     registerSearchIpc();
     registerEditorIpc();
+    registerImageEditorIpc();
     setAppMenu();
     createSearchWindow();
     createTray();
