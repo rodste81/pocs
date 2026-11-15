@@ -46,6 +46,24 @@
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28); -webkit-app-region: no-drag;
   }
   .sw.on { outline: 2px solid var(--on); outline-offset: 2px; }
+  /* seletor de qualquer cor (abre o seletor de cores do macOS) */
+  #bar input { -webkit-app-region: no-drag; font: inherit; }
+  .cp { width: 20px; height: 20px; margin: 0 2px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: default; }
+  .cp::-webkit-color-swatch-wrapper { padding: 0; }
+  .cp::-webkit-color-swatch { border: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.28); }
+  .cp.on { outline: 2px solid var(--on); outline-offset: 2px; }
+  .cpw { position: relative; display: inline-grid; place-items: center; }
+  .cpw b { position: absolute; pointer-events: none; font-size: 13px; line-height: 1; color: #fff; text-shadow: 0 0 2px #000; }
+  /* opcoes do carimbo de passos (aparecem com a ferramenta N ou com um passo selecionado) */
+  #stepopts { display: none; align-items: center; gap: 1px; -webkit-app-region: no-drag; }
+  #stepopts.on { display: flex; }
+  .lab { margin: 0 4px 0 2px; color: var(--dim); }
+  .sw.auto { background: linear-gradient(135deg, #fff 50%, #000 50%); }
+  #stepn {
+    width: 40px; height: 22px; margin: 0 1px; padding: 0 2px; border: 1px solid var(--line); border-radius: 5px;
+    background: var(--bg); color: var(--text); text-align: center; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  #stepn::-webkit-inner-spin-button { display: none; }
   .wd { width: 24px; }
   .wd i { display: block; border-radius: 50%; background: currentColor; }
   #zl { min-width: 46px; text-align: center; color: var(--dim); font-variant-numeric: tabular-nums; }
@@ -125,6 +143,10 @@ const I = {
   zout: '<circle cx="8" cy="8" r="5"/><path d="M11.6 11.6l3.4 3.4M6 8h4"/>',
   fit: '<path d="M2.5 6.5v-4h4M11.5 2.5h4v4M15.5 11.5v4h-4M6.5 15.5h-4v-4"/>',
   close: '<path d="M4.5 4.5l9 9M13.5 4.5l-9 9"/>',
+  circle: '<circle class="fill" cx="9" cy="9" r="6.5"/>',
+  square: '<rect class="fill" x="2.5" y="2.5" width="13" height="13" rx="3.5"/>',
+  minus: '<path d="M4.5 9h9" stroke-width="2"/>',
+  plus: '<path d="M4.5 9h9M9 4.5v9" stroke-width="2"/>',
 };
 const COLORS = [
   ['#2fb344', 'Verde'], ['#e5322d', 'Vermelho'], ['#f5c400', 'Amarelo'], ['#1e6fe0', 'Azul'],
@@ -145,7 +167,7 @@ const HINTS = {
   pixelate: 'Arraste sobre a área a pixelizar (bom para esconder dados)',
   crop: 'Arraste a área que fica · Enter corta · Esc cancela',
   text: 'Clique onde quer escrever · Enter confirma · Shift+Enter nova linha · Esc cancela',
-  step: 'Clique para pôr o próximo número',
+  step: 'Clique para carimbar o próximo número (+1 a cada clique) · + e − mudam o próximo · ↺ recomeça do 1 · 1…N renumera em sequência',
 };
 const WIDTHS = [2, 4, 7];      // espessura da linha (x escala da tela)
 const TEXT_SIZES = [16, 24, 36];
@@ -186,6 +208,20 @@ const swatches = COLORS.map(([c, name]) => {
   bar.appendChild(b);
   return b;
 });
+function addColorInput(title, onPick, mark) {
+  const w = document.createElement('span');
+  w.className = 'cpw';
+  const inp = document.createElement('input');
+  inp.type = 'color';
+  inp.className = 'cp';
+  inp.title = title;
+  inp.addEventListener('change', () => onPick(inp.value));
+  w.appendChild(inp);
+  if (mark) { const m = document.createElement('b'); m.textContent = mark; w.appendChild(m); }
+  return { w, inp };
+}
+const anyColor = addColorInput('Outra cor… (abre o seletor de cores)', (c) => setColor(c), '+');
+bar.appendChild(anyColor.w);
 addSep();
 const widthBtns = WIDTHS.map((w, k) => {
   const b = document.createElement('button');
@@ -198,6 +234,54 @@ const widthBtns = WIDTHS.map((w, k) => {
   return b;
 });
 addSep();
+// carimbo de passos: cor do numero, forma e contador
+const stepOpts = document.createElement('span');
+stepOpts.id = 'stepopts';
+bar.appendChild(stepOpts);
+function optLabel(t) { const l = document.createElement('span'); l.className = 'lab'; l.textContent = t; stepOpts.appendChild(l); return l; }
+function optButton(icon, title, onClick, cls = '') {
+  const b = document.createElement('button');
+  b.className = 'tb ' + cls;
+  b.innerHTML = icon.startsWith('<') || !I[icon] ? icon : svg(icon);
+  b.title = title;
+  b.addEventListener('click', onClick);
+  stepOpts.appendChild(b);
+  return b;
+}
+optLabel('Número');
+const FG = [['auto', 'Automática (contrasta com o fundo)'], ['#ffffff', 'Branco'], ['#000000', 'Preto']];
+const fgBtns = FG.map(([v, name]) => {
+  const b = document.createElement('button');
+  b.className = 'sw' + (v === 'auto' ? ' auto' : '');
+  if (v !== 'auto') b.style.background = v;
+  b.title = 'Cor do número: ' + name;
+  b.addEventListener('click', () => setFg(v));
+  stepOpts.appendChild(b);
+  return b;
+});
+const fgAny = addColorInput('Cor do número: outra cor…', (c) => setFg(c), '+');
+stepOpts.appendChild(fgAny.w);
+const shapeBtns = {
+  circle: optButton('circle', 'Forma: círculo', () => setStepShape('circle')),
+  square: optButton('square', 'Forma: quadrado', () => setStepShape('square')),
+};
+const stepLab = optLabel('Próximo');
+optButton('minus', 'Diminuir (−)', () => setStepNum(curStepNum() - 1));
+const stepN = document.createElement('input');
+stepN.id = 'stepn';
+stepN.type = 'number';
+stepN.min = '1';
+stepN.max = '999';
+stepN.title = 'Número do próximo passo (digite para mudar)';
+stepN.addEventListener('change', () => setStepNum(parseInt(stepN.value, 10)));
+stepN.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter' || ev.key === 'Escape') { stepN.blur(); } });
+stepOpts.appendChild(stepN);
+optButton('plus', 'Aumentar (+)', () => setStepNum(curStepNum() + 1));
+optButton('↺', 'Recomeçar do 1', () => setStepNum(1, true), 'txt');
+optButton('1…N', 'Renumerar todos os passos em sequência (1, 2, 3…), na ordem em que foram colocados', () => renumberSteps(), 'txt');
+const stepSep = document.createElement('span');
+stepSep.className = 'sep';
+stepOpts.appendChild(stepSep);
 addButton('zin', 'zin', 'Aumentar o zoom (⌘+)', () => setZoom(scale * 1.25));
 addButton('zout', 'zout', 'Diminuir o zoom (⌘−)', () => setZoom(scale / 1.25));
 const b100 = document.createElement('button');
@@ -236,15 +320,21 @@ let undoStack = [];
 let redoStack = [];
 let dirty = false;
 let unit = 1;             // capturas retina tem 2 pixels por ponto: linhas e textos acompanham
+let fg = 'auto';          // cor do numero do carimbo: 'auto' ou #rrggbb
+let stepShape = 'circle'; // forma do carimbo: circle | square
+let stepNext = 1;         // proximo numero do carimbo (+1 a cada clique)
+const HEX = /^#[0-9a-f]{6}$/i;
 
 try {
   const p = JSON.parse(localStorage.getItem('clcl-image-editor') || '{}');
   if (TOOLS.some(([t]) => t === p.tool) && p.tool !== 'crop') tool = p.tool;
-  if (COLORS.some(([c]) => c === p.color)) color = p.color;
+  if (HEX.test(p.color || '')) color = p.color;
+  if (p.fg === 'auto' || HEX.test(p.fg || '')) fg = p.fg;
+  if (p.stepShape === 'circle' || p.stepShape === 'square') stepShape = p.stepShape;
   if (p.widthIdx >= 0 && p.widthIdx < WIDTHS.length) widthIdx = p.widthIdx;
 } catch { /* preferencias sao opcionais */ }
 function savePrefs() {
-  try { localStorage.setItem('clcl-image-editor', JSON.stringify({ tool, color, widthIdx })); } catch { /* opcional */ }
+  try { localStorage.setItem('clcl-image-editor', JSON.stringify({ tool, color, widthIdx, fg, stepShape })); } catch { /* opcional */ }
 }
 
 const strokeW = (k = widthIdx) => Math.max(1, Math.round(WIDTHS[k] * unit));
@@ -262,10 +352,12 @@ function intRect(r) {
   return { x, y, w: Math.round(r.x + r.w) - x, h: Math.round(r.y + r.h) - y };
 }
 function fontOf(s) { return `600 ${s.size}px -apple-system, "Helvetica Neue", "Segoe UI", sans-serif`; }
-function contrastOn(c) {
+function luminance(c) {
   const n = parseInt(c.slice(1), 16);
-  const lum = 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
-  return lum > 150 ? '#000000' : '#ffffff';
+  return 0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+}
+function contrastOn(c) {
+  return luminance(c) > 150 ? '#000000' : '#ffffff';
 }
 
 function blurRegion(c, canvas, r0, rad) {
@@ -350,10 +442,17 @@ function drawShape(c, canvas, s) {
     }
     case 'step': {
       c.beginPath();
-      c.arc(s.x1, s.y1, s.size, 0, Math.PI * 2);
+      if (s.shape === 'square') c.roundRect(s.x1 - s.size, s.y1 - s.size, s.size * 2, s.size * 2, s.size * 0.32);
+      else c.arc(s.x1, s.y1, s.size, 0, Math.PI * 2);
       c.fill();
-      c.fillStyle = contrastOn(s.color);
-      c.font = `700 ${Math.round(s.size * (s.n > 9 ? 0.95 : 1.15))}px -apple-system, "Helvetica Neue", "Segoe UI", sans-serif`;
+      if (contrastOn(s.color) === '#000000' && luminance(s.color) > 225) {
+        // fundo quase branco: um contorno fino para o carimbo nao sumir numa tela clara
+        c.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+        c.lineWidth = Math.max(1, s.size * 0.09);
+        c.stroke();
+      }
+      c.fillStyle = s.fg || contrastOn(s.color);
+      c.font = `700 ${Math.round(s.size * (s.n > 99 ? 0.72 : s.n > 9 ? 0.95 : 1.15))}px -apple-system, "Helvetica Neue", "Segoe UI", sans-serif`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText(String(s.n), s.x1, s.y1 + s.size * 0.06);
@@ -460,6 +559,20 @@ function toast(msg, ms = 2200) {
 function updateUi() {
   for (const [t] of TOOLS) btn['tool-' + t].classList.toggle('on', tool === t);
   swatches.forEach((b, k) => b.classList.toggle('on', COLORS[k][0] === color));
+  const custom = !COLORS.some(([c]) => c === color);
+  anyColor.inp.classList.toggle('on', custom);
+  if (custom) anyColor.inp.value = color;
+  const ss = selStep();
+  stepOpts.classList.toggle('on', tool === 'step' || !!ss);
+  const curFg = ss ? ss.fg || 'auto' : fg;
+  fgBtns.forEach((b, k) => b.classList.toggle('on', FG[k][0] === curFg));
+  const fgCustom = !FG.some(([v]) => v === curFg);
+  fgAny.inp.classList.toggle('on', fgCustom);
+  if (fgCustom) fgAny.inp.value = curFg;
+  const curShape = ss ? ss.shape || 'circle' : stepShape;
+  for (const k of Object.keys(shapeBtns)) shapeBtns[k].classList.toggle('on', k === curShape);
+  stepLab.textContent = ss ? 'Este passo' : 'Próximo';
+  if (document.activeElement !== stepN) stepN.value = String(curStepNum());
   widthBtns.forEach((b, k) => b.classList.toggle('on', k === widthIdx));
   btn.undo.disabled = !undoStack.length;
   btn.redo.disabled = !redoStack.length;
@@ -520,6 +633,50 @@ function setColor(c) {
   } else render();
   if (editing) { editing.s.color = c; txt.style.color = c; txt.focus(); }
 }
+function selStep() { const s = shapes[sel]; return s && s.type === 'step' ? s : null; }
+function curStepNum() { const ss = selStep(); return ss ? ss.n : stepNext; }
+function setFg(v) {
+  fg = v;
+  savePrefs();
+  const ss = selStep();
+  if (ss && (ss.fg || 'auto') !== v) {
+    pushUndo();
+    if (v === 'auto') delete ss.fg; else ss.fg = v;
+    changed();
+  } else render();
+}
+function setStepShape(v) {
+  stepShape = v;
+  savePrefs();
+  const ss = selStep();
+  if (ss && (ss.shape || 'circle') !== v) {
+    pushUndo();
+    ss.shape = v;
+    changed();
+  } else render();
+}
+// muda o numero do passo selecionado, ou o proximo numero do carimbo
+function setStepNum(n, announce = false) {
+  n = Math.max(1, Math.min(999, Math.round(n) || 1));
+  const ss = selStep();
+  if (ss) {
+    if (ss.n !== n) { pushUndo(); ss.n = n; changed(); } else render();
+    return;
+  }
+  stepNext = n;
+  if (announce) toast('O próximo passo será o ' + n);
+  render();
+}
+function renumberSteps() {
+  commitText();
+  const steps = shapes.filter((s) => s.type === 'step');
+  if (!steps.length) { toast('Ainda não há passos na imagem'); return; }
+  pushUndo();
+  steps.forEach((s, k) => { s.n = k + 1; });
+  stepNext = steps.length + 1;
+  changed();
+  toast(`Passos renumerados de 1 a ${steps.length}`);
+}
 function setWidth(k) {
   widthIdx = k;
   savePrefs();
@@ -540,7 +697,7 @@ const blurAmount = (k = widthIdx) => Math.round([5, 8, 12][k] * unit);
 const pixelAmount = (k = widthIdx) => Math.round([7, 10, 15][k] * unit);
 
 // ---------- desfazer ----------
-function snapshot() { return { base, shapes: clone(shapes) }; }
+function snapshot() { return { base, shapes: clone(shapes), stepNext }; }
 function pushUndo() {
   undoStack.push(snapshot());
   if (undoStack.length > 100) undoStack.shift();
@@ -549,6 +706,7 @@ function pushUndo() {
 function restore(st) {
   base = st.base;
   shapes = st.shapes;
+  if (st.stepNext) stepNext = st.stepNext;
   sel = -1;
   crop = null;
   dirty = true;
@@ -760,7 +918,10 @@ cv.addEventListener('pointerdown', (ev) => {
   }
   if (tool === 'step') {
     pushUndo();
-    shapes.push({ type: 'step', color, x1: p.x, y1: p.y, size: stepR(), n: nextStep() });
+    const st = { type: 'step', color, shape: stepShape, x1: p.x, y1: p.y, size: stepR(), n: stepNext };
+    if (fg !== 'auto') st.fg = fg;
+    shapes.push(st);
+    stepNext = Math.min(999, stepNext + 1);
     changed();
     return;
   }
@@ -884,6 +1045,7 @@ document.getElementById('cfyes').addEventListener('click', () => api.close());
 // ---------- teclado ----------
 window.addEventListener('keydown', (ev) => {
   if (editing) return;
+  if (ev.target && ev.target.tagName === 'INPUT') return; // campo do numero ou seletor de cor
   if (confirmEl.style.display === 'grid') {
     if (ev.key === 'Escape') { confirmEl.style.display = 'none'; ev.preventDefault(); }
     return;
@@ -913,6 +1075,8 @@ window.addEventListener('keydown', (ev) => {
     if (crop) applyCrop();
   } else if (ev.key === 'Delete' || ev.key === 'Backspace') {
     deleteSelected(false);
+  } else if ((ev.key === '+' || ev.key === '=' || ev.key === '-') && !ev.altKey && (tool === 'step' || selStep())) {
+    setStepNum(curStepNum() + (ev.key === '-' ? -1 : 1));
   } else if (ev.key.startsWith('Arrow') && sel >= 0) {
     const step = (ev.shiftKey ? 10 : 1) / scale;
     const dx = ev.key === 'ArrowLeft' ? -step : ev.key === 'ArrowRight' ? step : 0;
