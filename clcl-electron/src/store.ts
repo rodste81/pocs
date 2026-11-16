@@ -18,6 +18,7 @@ export interface Config {
   multiPasteImageDelayMs: number; // modo onebyone (e reserva dos outros): espera entre uma imagem e outra (ms)
   popupFallback: boolean; // se o menu nao abrir, tenta o proximo modo sozinho
   remoteCommands: boolean; // aceita comandos de teste pelo arquivo clcl-cmd.txt
+  captureConcealed: boolean; // guarda no historico o que o app de origem marca como oculto (senhas do Chrome, tokens)
   hotkeysVersion: number; // controle interno: ver HOTKEYS_VERSION
   popupVersion: number; // controle interno: ver POPUP_VERSION
 }
@@ -40,6 +41,7 @@ const defaults: Config = {
   multiPasteImageDelayMs: 2000,
   popupFallback: false,
   remoteCommands: true,
+  captureConcealed: true,
   hotkeysVersion: 0,
   popupVersion: 0,
 };
