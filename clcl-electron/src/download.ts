@@ -44,13 +44,14 @@ export interface DownloadResult {
   file?: string; // caminho final do video
   error?: string; // ultima linha de erro do yt-dlp
   missingTool?: boolean;
+  usedCookies?: boolean; // so baixou (ou so tentou) com o login do navegador
 }
 
-export function downloadVideo(input: string, destDir: string): Promise<DownloadResult> {
-  const url = parseVideoUrl(input);
-  if (!url) return Promise.resolve({ ok: false, error: 'Link inválido.' });
-  const bin = findYtDlp();
-  if (!bin) return Promise.resolve({ ok: false, missingTool: true, error: 'yt-dlp não está instalado.' });
+// Erros de quem acessa sem login: no X, post sensivel/+18 ou de conta protegida aparece como
+// "No video could be found" (o X devolve um tweet oculto para visitantes).
+const NEEDS_LOGIN = /No video could be found|NSFW|age.?restrict|sensitive|log ?in|sign ?in|authenticat|protected|unavailable|private/i;
+
+function runYtDlp(bin: string, url: URL, destDir: string, extra: string[]): Promise<DownloadResult> {
   const args = [
     '--no-playlist',
     '--no-progress',
@@ -58,6 +59,7 @@ export function downloadVideo(input: string, destDir: string): Promise<DownloadR
     '-P', destDir,
     '-o', '%(uploader,channel|video)s - %(title).60s [%(id)s].%(ext)s',
     '--print', 'after_move:filepath',
+    ...extra,
     '--', url.toString(),
   ];
   return new Promise((resolve) => {
@@ -72,4 +74,23 @@ export function downloadVideo(input: string, destDir: string): Promise<DownloadR
       resolve({ ok: false, error: last.replace(/^ERROR:\s*/, '').slice(0, 300) });
     });
   });
+}
+
+// cookiesBrowser: navegador cujo login o yt-dlp usa quando o video so aparece para quem
+// esta logado (ex.: 'chrome', 'chrome:Profile 1', 'safari'). Vazio = nunca usa.
+export async function downloadVideo(
+  input: string,
+  destDir: string,
+  cookiesBrowser = '',
+  onRetry?: (reason: string) => void,
+): Promise<DownloadResult> {
+  const url = parseVideoUrl(input);
+  if (!url) return { ok: false, error: 'Link inválido.' };
+  const bin = findYtDlp();
+  if (!bin) return { ok: false, missingTool: true, error: 'yt-dlp não está instalado.' };
+  const first = await runYtDlp(bin, url, destDir, []);
+  if (first.ok || !cookiesBrowser || !NEEDS_LOGIN.test(first.error ?? '')) return first;
+  onRetry?.(first.error ?? '');
+  const second = await runYtDlp(bin, url, destDir, ['--cookies-from-browser', cookiesBrowser]);
+  return { ...second, usedCookies: true, error: second.ok ? undefined : `${second.error} (sem login: ${first.error})`.slice(0, 400) };
 }

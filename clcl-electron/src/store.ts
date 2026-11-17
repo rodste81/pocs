@@ -19,6 +19,7 @@ export interface Config {
   popupFallback: boolean; // se o menu nao abrir, tenta o proximo modo sozinho
   remoteCommands: boolean; // aceita comandos de teste pelo arquivo clcl-cmd.txt
   captureConcealed: boolean; // guarda no historico o que o app de origem marca como oculto (senhas do Chrome, tokens)
+  downloadCookiesBrowser: string; // video que so aparece logado: tenta de novo com o login deste navegador ('' = nunca)
   hotkeysVersion: number; // controle interno: ver HOTKEYS_VERSION
   popupVersion: number; // controle interno: ver POPUP_VERSION
 }
@@ -42,6 +43,7 @@ const defaults: Config = {
   popupFallback: false,
   remoteCommands: true,
   captureConcealed: true,
+  downloadCookiesBrowser: 'chrome',
   hotkeysVersion: 0,
   popupVersion: 0,
 };

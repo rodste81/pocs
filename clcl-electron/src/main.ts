@@ -926,9 +926,18 @@ function registerImageEditorIpc(): void {
   ipcMain.on('imgedit:debug', (_ev, msg: unknown) => log('editor de imagem:', String(msg).slice(0, 400)));
 }
 
+const downloadsRunning = new Set<string>();
+
 async function startVideoDownload(input: string): Promise<void> {
   const url = parseVideoUrl(input);
   if (!url) return;
+  const key = url.toString();
+  if (downloadsRunning.has(key)) {
+    // dois downloads do mesmo link ao mesmo tempo disputam os arquivos .part e um deles falha
+    log('download: este link ja esta baixando', url.hostname);
+    notify('Esse vídeo já está sendo baixado.');
+    return;
+  }
   if (!findYtDlp()) {
     log('download: yt-dlp nao encontrado');
     dialog.showErrorBox('CLCL', 'Para baixar vídeos é preciso instalar o yt-dlp.\n\nNo Terminal:\n    brew install yt-dlp ffmpeg\n\nDepois é só colar o link de novo.');
@@ -936,9 +945,14 @@ async function startVideoDownload(input: string): Promise<void> {
   }
   log('download: inicio', url.hostname);
   notify(`Baixando o vídeo de ${url.hostname}…`);
-  const res = await downloadVideo(input, app.getPath('downloads'));
+  downloadsRunning.add(key);
+  const browser = cfg.downloadCookiesBrowser;
+  const res = await downloadVideo(input, app.getPath('downloads'), browser, (why) => {
+    log('download: sem login nao deu (', why, ') -> tentando com o login do', browser);
+    notify(`Esse vídeo só aparece para quem está logado. Tentando com o login do ${browser}…`);
+  }).finally(() => downloadsRunning.delete(key));
   if (res.ok && res.file) {
-    log('download: ok', path.basename(res.file));
+    log('download: ok', res.usedCookies ? '(com login do navegador)' : '', path.basename(res.file));
     const file = res.file;
     if (Notification.isSupported()) {
       const n = new Notification({ title: 'CLCL — vídeo salvo em Downloads', body: path.basename(file) });
